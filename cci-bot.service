@@ -1,0 +1,24 @@
+[Unit]
+Description=CCI Trading Bot - Multi-Indicator (PAXGUSDT)
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/bot_multi
+ExecStart=/usr/bin/python3 /opt/bot_multi/main.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Environment variables
+Environment=PYTHONPATH=/opt/bot_multi
+Environment=PYTHONUNBUFFERED=1
+
+# Security settings (basitleştirilmiş)
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,21 @@
+# HTTP client for API requests
+httpx==0.25.2
+
+# Environment variables management
+python-dotenv==1.0.0
+
+# Timezone support for Turkey time
+pytz==2024.1
+
+# Twelve Data API (real-time forex data, 800 req/day free)
+twelvedata==1.2.12
+
+# Standard library dependencies (already included in Python)
+# asyncio
+# logging
+# json
+# time
+# os
+# datetime
+# typing
+# math
