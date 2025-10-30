@@ -1,20 +1,20 @@
 [Unit]
-Description=CCI Trading Bot - Multi-Indicator (PAXGUSDT)
+Description=Bot Multi Gold - 8-Indicator Trading Bot (XAUUSD)
 After=network.target
 Wants=network.target
 
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/opt/bot_multi
-ExecStart=/usr/bin/python3 /opt/bot_multi/main.py
+WorkingDirectory=/opt/bot_multi_gold
+ExecStart=/usr/bin/python3 /opt/bot_multi_gold/main.py
 Restart=always
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
 
 # Environment variables
-Environment=PYTHONPATH=/opt/bot_multi
+Environment=PYTHONPATH=/opt/bot_multi_gold
 Environment=PYTHONUNBUFFERED=1
 
 # Security settings (basitleştirilmiş)

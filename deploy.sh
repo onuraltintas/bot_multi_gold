@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# CCI Trading Bot VPS Deployment Script
-# Dosyaları /opt/bot_multi/ dizinine kopyalar ve servisi başlatır
+# Bot Multi Gold VPS Deployment Script
+# Dosyaları /opt/bot_multi_gold/ dizinine kopyalar ve servisi başlatır
 
-echo "🤖 CCI Trading Bot - Deployment Script"
+echo "🤖 Bot Multi Gold - Deployment Script"
 echo "=================================================="
 
 # Root olarak çalıştırılıp çalıştırılmadığını kontrol et
@@ -17,7 +17,7 @@ CURRENT_DIR="$(pwd)"
 echo "📂 Kaynak dizin: $CURRENT_DIR"
 
 # Hedef bot dizini
-BOT_DIR="/opt/bot_multi"
+BOT_DIR="/opt/bot_multi_gold"
 echo "📁 Hedef dizin: $BOT_DIR"
 
 # Bot dizinini oluştur
@@ -41,11 +41,11 @@ echo "✅ Dosyalar kopyalandı"
 
 # Servis dosyasını kopyala
 echo "⚙️  Systemd servis dosyası kopyalanıyor..."
-cp -v cci-bot.service /etc/systemd/system/
+cp -v bot-multi-gold.service /etc/systemd/system/
 
 # Servis dosyasına doğru izinleri ver
 echo "🔐 Servis dosyası izinleri ayarlanıyor..."
-chmod 644 /etc/systemd/system/cci-bot.service
+chmod 644 /etc/systemd/system/bot-multi-gold.service
 
 # Bot dosyalarına doğru izinleri ver
 echo "🔐 Bot dosyası izinleri ayarlanıyor..."
@@ -67,31 +67,31 @@ systemctl daemon-reload
 
 # Eski servisi durdur (hata vermesi önemli değil)
 echo "🛑 Eski servis durduruluyor (varsa)..."
-systemctl stop cci-bot.service 2>/dev/null || true
+systemctl stop bot-multi-gold.service 2>/dev/null || true
 
 # Servisi etkinleştir (sistem başlangıcında otomatik başlasın)
-echo "✅ CCI Bot servisi etkinleştiriliyor..."
-systemctl enable cci-bot.service
+echo "✅ Bot Multi Gold servisi etkinleştiriliyor..."
+systemctl enable bot-multi-gold.service
 
 # Servisi başlat
-echo "🚀 CCI Bot servisi başlatılıyor..."
-systemctl start cci-bot.service
+echo "🚀 Bot Multi Gold servisi başlatılıyor..."
+systemctl start bot-multi-gold.service
 
 # Servis durumunu kontrol et
 echo "📊 Servis durumu kontrol ediliyor..."
 sleep 3
 
-if systemctl is-active --quiet cci-bot.service; then
+if systemctl is-active --quiet bot-multi-gold.service; then
     echo ""
-    echo "✅ ✅ ✅ CCI Bot başarıyla çalışıyor! ✅ ✅ ✅"
+    echo "✅ ✅ ✅ Bot Multi Gold başarıyla çalışıyor! ✅ ✅ ✅"
     echo ""
     echo "📋 Yararlı komutlar:"
-    echo "   Durum kontrol:          sudo systemctl status cci-bot"
-    echo "   Canlı loglar:           sudo journalctl -u cci-bot -f"
-    echo "   Son 50 satır log:       sudo journalctl -u cci-bot -n 50"
-    echo "   Servisi durdur:         sudo systemctl stop cci-bot"
-    echo "   Servisi başlat:         sudo systemctl start cci-bot"
-    echo "   Servisi yeniden başlat: sudo systemctl restart cci-bot"
+    echo "   Durum kontrol:          sudo systemctl status bot-multi-gold"
+    echo "   Canlı loglar:           sudo journalctl -u bot-multi-gold -f"
+    echo "   Son 50 satır log:       sudo journalctl -u bot-multi-gold -n 50"
+    echo "   Servisi durdur:         sudo systemctl stop bot-multi-gold"
+    echo "   Servisi başlat:         sudo systemctl start bot-multi-gold"
+    echo "   Servisi yeniden başlat: sudo systemctl restart bot-multi-gold"
     echo ""
     echo "📂 Bot dosyaları: $BOT_DIR"
     echo "📝 Konfigürasyon: $BOT_DIR/config.py"
@@ -100,11 +100,11 @@ if systemctl is-active --quiet cci-bot.service; then
     echo "💡 Telegram'da '🤖 BOT BAŞLATILDI' mesajını kontrol edin!"
 else
     echo ""
-    echo "❌ ❌ ❌ CCI Bot başlatılamadı! ❌ ❌ ❌"
+    echo "❌ ❌ ❌ Bot Multi Gold başlatılamadı! ❌ ❌ ❌"
     echo ""
     echo "🔍 Hata ayıklama:"
-    echo "   1. Servis durumu: sudo systemctl status cci-bot"
-    echo "   2. Detaylı loglar: sudo journalctl -u cci-bot -n 100"
+    echo "   1. Servis durumu: sudo systemctl status bot-multi-gold"
+    echo "   2. Detaylı loglar: sudo journalctl -u bot-multi-gold -n 100"
     echo "   3. config.env kontrolü: cat $BOT_DIR/config.env"
     echo "   4. Manuel test: cd $BOT_DIR && python3 main.py"
 fi
