@@ -17,7 +17,7 @@ from config import (
 )
 from core import TwelveDataClient, TimeframeScheduler, SignalTracker, TelegramNotifier
 from indicators import ChandeMomentumOscillator, StochasticOscillator, RelativeStrengthIndex, MACD, StochasticRSI, WilliamsR, FisherTransform, CoralTrend
-from strategies import AllIndicatorsStrategy
+from strategies import MajorityVoteStrategy
 from analyzer import CryptoAnalyzer
 
 # Logging konfigürasyonu
@@ -87,7 +87,7 @@ async def main():
     logger.info(f"Coral Trend Indicator initialized with period={CORAL_PERIOD}, multiplier={CORAL_MULTIPLIER}")
 
     # Strateji oluştur - Tüm indikatörler kombinasyonu (8 indikatör)
-    strategy = AllIndicatorsStrategy(
+    strategy = MajorityVoteStrategy(
         cmo_indicator=cmo_indicator, 
         stoch_indicator=stoch_indicator,
         rsi_indicator=rsi_indicator,

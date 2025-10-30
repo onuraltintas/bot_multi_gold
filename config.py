@@ -70,5 +70,8 @@ FISHER_BEARISH_THRESHOLD = -1.5  # Güçlü ayı trendi eşiği
 CORAL_PERIOD = 21  # Coral Trend EMA periyodu
 CORAL_MULTIPLIER = 0.4  # ATR çarpanı (0.2-0.6 arası önerilir)
 
+# Strateji Parametreleri - Majority Vote
+MINIMUM_VOTE_THRESHOLD = 4  # 8 indikatörden en az kaç tanesi aynı yönde sinyal vermeli (4-8 arası)
+
 # Twelve Data API Konfigürasyonu
 TWELVE_DATA_API_KEY = os.getenv("TWELVE_DATA_API_KEY", "")

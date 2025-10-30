@@ -9,7 +9,8 @@ from config import (
     RSI_OVERBOUGHT, RSI_OVERSOLD,
     STOCH_RSI_OVERBOUGHT, STOCH_RSI_OVERSOLD,
     WILLIAMS_R_OVERBOUGHT, WILLIAMS_R_OVERSOLD,
-    FISHER_BULLISH_THRESHOLD, FISHER_BEARISH_THRESHOLD
+    FISHER_BULLISH_THRESHOLD, FISHER_BEARISH_THRESHOLD,
+    MINIMUM_VOTE_THRESHOLD
 )
 from indicators import ChandeMomentumOscillator, StochasticOscillator, RelativeStrengthIndex, MACD, StochasticRSI, WilliamsR, FisherTransform, CoralTrend
 
@@ -22,250 +23,18 @@ class IStrategy(ABC):
         """Sinyal analizi yap: BUY, SELL veya NEUTRAL döner"""
         pass
 
-
-class CMOStrategy(IStrategy):
-    """CMO (Chande Momentum Oscillator) tabanlı basit strateji
+class MajorityVoteStrategy(IStrategy):
+    """8 İndikatör Majority Vote (Çoğunluk Oylaması) Stratejisi
+    
+    İndikatörler: CMO, Stochastic, RSI, MACD, Stochastic RSI, Williams %R, Fisher Transform, Coral Trend
     
     Sinyal mantığı:
-    - CMO < -50: Aşırı satım bölgesi, potansiyel BUY
-    - CMO > +50: Aşırı alım bölgesi, potansiyel SELL
-    - Diğer durumlar: NEUTRAL
-    """
-
-    def __init__(self, cmo_indicator: ChandeMomentumOscillator):
-        self.cmo = cmo_indicator
-
-    def analyze(self, indicator_values: List[float], klines: List[List]) -> str:
-        # indicator_values burada kullanılmıyor, direkt klines'dan hesaplıyoruz
-        return "NEUTRAL"  # Basit placeholder
-
-    def analyze_with_context(self, klines: List[List]) -> Tuple[str, Dict[str, Any]]:
-        """CMO hesapla ve sinyal + context döndür"""
-        cmo_values = self.cmo.calculate(klines)
-        
-        # Son kapanmış mumu kullan (aktif mum hariç)
-        curr_idx = len(cmo_values["cmo"]) - 2
-        
-        if curr_idx < 0 or cmo_values["cmo"][curr_idx] is None:
-            signal = "NEUTRAL"
-        else:
-            cmo_val = cmo_values["cmo"][curr_idx]
-            
-            if cmo_val < CMO_OVERSOLD:
-                signal = "BUY"
-            elif cmo_val > CMO_OVERBOUGHT:
-                signal = "SELL"
-            else:
-                signal = "NEUTRAL"
-
-        context: Dict[str, Any] = {
-            "indicators": {
-                "cmo": cmo_values
-            }
-        }
-        return signal, context
-
-
-class CMOStochasticStrategy(IStrategy):
-    """CMO + Stochastic kombinasyonu ile sinyal üretimi
+    - Her indikatör için BUY/SELL/NEUTRAL oylaması yapılır
+    - BUY: En az MINIMUM_VOTE_THRESHOLD (4) indikatör BUY sinyali verirse
+    - SELL: En az MINIMUM_VOTE_THRESHOLD (4) indikatör SELL sinyali verirse  
+    - NEUTRAL: Yukarıdaki koşullar sağlanmazsa
     
-    Sinyal mantığı:
-    - BUY: CMO < oversold VE Stochastic %K < 20
-    - SELL: CMO > overbought VE Stochastic %K > 80
-    - NEUTRAL: Diğer durumlar
-    """
-
-    def __init__(self, cmo_indicator: ChandeMomentumOscillator, stoch_indicator: StochasticOscillator):
-        self.cmo = cmo_indicator
-        self.stoch = stoch_indicator
-
-    def analyze(self, indicator_values: List[float], klines: List[List]) -> str:
-        return "NEUTRAL"  # Placeholder
-
-    def analyze_with_context(self, klines: List[List]) -> Tuple[str, Dict[str, Any]]:
-        """CMO ve Stochastic hesapla, sinyal + context döndür"""
-        cmo_values = self.cmo.calculate(klines)
-        stoch_values = self.stoch.calculate(klines)
-        
-        # Son kapanmış mumu kullan (aktif mum hariç)
-        curr_idx = len(cmo_values["cmo"]) - 2
-        
-        signal = "NEUTRAL"
-        
-        if curr_idx < 0:
-            pass
-        elif cmo_values["cmo"][curr_idx] is None or stoch_values["stoch_k"][curr_idx] is None:
-            pass
-        else:
-            cmo_val = cmo_values["cmo"][curr_idx]
-            stoch_k = stoch_values["stoch_k"][curr_idx]
-            stoch_d = stoch_values["stoch_d"][curr_idx]
-            
-            # BUY sinyali: Hem CMO hem Stochastic oversold
-            if cmo_val < CMO_OVERSOLD and stoch_k < STOCH_OVERSOLD:
-                signal = "BUY"
-            # SELL sinyali: Hem CMO hem Stochastic overbought
-            elif cmo_val > CMO_OVERBOUGHT and stoch_k > STOCH_OVERBOUGHT:
-                signal = "SELL"
-
-        context: Dict[str, Any] = {
-            "indicators": {
-                "cmo": cmo_values,
-                "stoch_k": stoch_values["stoch_k"],
-                "stoch_d": stoch_values["stoch_d"]
-            }
-        }
-        return signal, context
-
-
-class CMOStochasticRSIStrategy(IStrategy):
-    """CMO + Stochastic + RSI tabanlı üçlü onaylı strateji
-    
-    Sinyal mantığı:
-    - BUY: CMO < oversold VE Stoch K < oversold VE RSI < oversold
-    - SELL: CMO > overbought VE Stoch K > overbought VE RSI > overbought
-    - Üç indikatör de aynı yönde sinyal verdiğinde işlem yapılır
-    """
-
-    def __init__(
-        self, 
-        cmo_indicator: ChandeMomentumOscillator,
-        stoch_indicator: StochasticOscillator,
-        rsi_indicator: RelativeStrengthIndex
-    ):
-        self.cmo = cmo_indicator
-        self.stoch = stoch_indicator
-        self.rsi = rsi_indicator
-
-    def analyze(self, indicator_values: List[float], klines: List[List]) -> Tuple[str, Dict[str, Any]]:
-        signal = "NEUTRAL"
-        
-        # Tüm indikatörleri hesapla
-        cmo_values = self.cmo.calculate(klines)
-        stoch_values = self.stoch.calculate(klines)
-        rsi_values = self.rsi.calculate(klines)
-        
-        curr_idx = -1
-        
-        # Eğer herhangi biri None ise sinyal yok
-        if cmo_values["cmo"][curr_idx] is None or \
-           stoch_values["stoch_k"][curr_idx] is None or \
-           rsi_values["rsi"][curr_idx] is None:
-            pass
-        else:
-            cmo_val = cmo_values["cmo"][curr_idx]
-            stoch_k = stoch_values["stoch_k"][curr_idx]
-            stoch_d = stoch_values["stoch_d"][curr_idx]
-            rsi_val = rsi_values["rsi"][curr_idx]
-            
-            # BUY sinyali: Her üç indikatör de oversold
-            if (cmo_val < CMO_OVERSOLD and 
-                stoch_k < STOCH_OVERSOLD and 
-                rsi_val < RSI_OVERSOLD):
-                signal = "BUY"
-            # SELL sinyali: Her üç indikatör de overbought
-            elif (cmo_val > CMO_OVERBOUGHT and 
-                  stoch_k > STOCH_OVERBOUGHT and 
-                  rsi_val > RSI_OVERBOUGHT):
-                signal = "SELL"
-
-        context: Dict[str, Any] = {
-            "indicators": {
-                "cmo": cmo_values,
-                "stoch_k": stoch_values["stoch_k"],
-                "stoch_d": stoch_values["stoch_d"],
-                "rsi": rsi_values
-            }
-        }
-        return signal, context
-
-
-class CMOStochasticRSIMACDStrategy(IStrategy):
-    """CMO + Stochastic + RSI + MACD tabanlı dörtlü onaylı strateji
-    
-    Sinyal mantığı:
-    - BUY: CMO < oversold VE Stoch K < oversold VE RSI < oversold VE MACD > Signal (bullish cross)
-    - SELL: CMO > overbought VE Stoch K > overbought VE RSI > overbought VE MACD < Signal (bearish cross)
-    - Dört indikatör de aynı yönde sinyal verdiğinde işlem yapılır
-    """
-
-    def __init__(
-        self, 
-        cmo_indicator: ChandeMomentumOscillator,
-        stoch_indicator: StochasticOscillator,
-        rsi_indicator: RelativeStrengthIndex,
-        macd_indicator: MACD
-    ):
-        self.cmo = cmo_indicator
-        self.stoch = stoch_indicator
-        self.rsi = rsi_indicator
-        self.macd = macd_indicator
-
-    def analyze(self, indicator_values: List[float], klines: List[List]) -> Tuple[str, Dict[str, Any]]:
-        signal = "NEUTRAL"
-        
-        # Tüm indikatörleri hesapla
-        cmo_values = self.cmo.calculate(klines)
-        stoch_values = self.stoch.calculate(klines)
-        rsi_values = self.rsi.calculate(klines)
-        macd_values = self.macd.calculate(klines)
-        
-        curr_idx = -1
-        
-        # Eğer herhangi biri None ise sinyal yok
-        if (cmo_values["cmo"][curr_idx] is None or 
-            stoch_values["stoch_k"][curr_idx] is None or 
-            rsi_values["rsi"][curr_idx] is None or
-            macd_values["macd"][curr_idx] is None or
-            macd_values["signal"][curr_idx] is None):
-            pass
-        else:
-            cmo_val = cmo_values["cmo"][curr_idx]
-            stoch_k = stoch_values["stoch_k"][curr_idx]
-            stoch_d = stoch_values["stoch_d"][curr_idx]
-            rsi_val = rsi_values["rsi"][curr_idx]
-            macd_line = macd_values["macd"][curr_idx]
-            macd_signal = macd_values["signal"][curr_idx]
-            macd_histogram = macd_values["histogram"][curr_idx]
-            
-            # BUY sinyali: Tüm indikatörler oversold + MACD bullish
-            if (cmo_val < CMO_OVERSOLD and 
-                stoch_k < STOCH_OVERSOLD and 
-                rsi_val < RSI_OVERSOLD and
-                macd_line > macd_signal):  # MACD üstte (bullish)
-                signal = "BUY"
-            # SELL sinyali: Tüm indikatörler overbought + MACD bearish
-            elif (cmo_val > CMO_OVERBOUGHT and 
-                  stoch_k > STOCH_OVERBOUGHT and 
-                  rsi_val > RSI_OVERBOUGHT and
-                  macd_line < macd_signal):  # MACD altta (bearish)
-                signal = "SELL"
-
-        context: Dict[str, Any] = {
-            "indicators": {
-                "cmo": cmo_values,
-                "stoch_k": stoch_values["stoch_k"],
-                "stoch_d": stoch_values["stoch_d"],
-                "rsi": rsi_values,
-                "macd": macd_values["macd"],
-                "macd_signal": macd_values["signal"],
-                "macd_histogram": macd_values["histogram"]
-            }
-        }
-        return signal, context
-
-
-class AllIndicatorsStrategy(IStrategy):
-    """CMO + Stochastic + RSI + MACD + Stochastic RSI + Williams %R + Fisher Transform + Coral Trend - Sekizli kombinasyon
-    
-    Sinyal mantığı:
-    - BUY: CMO < oversold VE Stoch K < oversold VE RSI < oversold VE 
-           MACD > Signal VE Stoch RSI K < oversold VE Williams %R < oversold VE
-           Fisher > Trigger VE Fisher > bearish_threshold VE Coral Trend = Bullish
-    - SELL: CMO > overbought VE Stoch K > overbought VE RSI > overbought VE 
-            MACD < Signal VE Stoch RSI K > overbought VE Williams %R > overbought VE
-            Fisher < Trigger VE Fisher < bullish_threshold VE Coral Trend = Bearish
-    - Tüm indikatörler aynı yönde sinyal verdiğinde işlem yapılır
+    Örnek: 5 BUY, 1 SELL, 2 NEUTRAL → BUY sinyali (5 ≥ 4)
     """
 
     def __init__(
@@ -288,9 +57,122 @@ class AllIndicatorsStrategy(IStrategy):
         self.fisher = fisher_indicator
         self.coral = coral_indicator
 
-    def analyze(self, indicator_values: List[float], klines: List[List]) -> Tuple[str, Dict[str, Any]]:
-        signal = "NEUTRAL"
+    def _get_individual_signals(self, klines: List[List]) -> Dict[str, str]:
+        """Her indikatör için bireysel BUY/SELL/NEUTRAL sinyali hesapla"""
+        signals = {}
+        curr_idx = -1
         
+        # CMO Sinyali
+        cmo_values = self.cmo.calculate(klines)
+        if cmo_values["cmo"][curr_idx] is not None:
+            cmo_val = cmo_values["cmo"][curr_idx]
+            if cmo_val < CMO_OVERSOLD:
+                signals["cmo"] = "BUY"
+            elif cmo_val > CMO_OVERBOUGHT:
+                signals["cmo"] = "SELL"
+            else:
+                signals["cmo"] = "NEUTRAL"
+        else:
+            signals["cmo"] = "NEUTRAL"
+            
+        # Stochastic Sinyali
+        stoch_values = self.stoch.calculate(klines)
+        if stoch_values["stoch_k"][curr_idx] is not None:
+            stoch_k = stoch_values["stoch_k"][curr_idx]
+            if stoch_k < STOCH_OVERSOLD:
+                signals["stoch"] = "BUY"
+            elif stoch_k > STOCH_OVERBOUGHT:
+                signals["stoch"] = "SELL"
+            else:
+                signals["stoch"] = "NEUTRAL"
+        else:
+            signals["stoch"] = "NEUTRAL"
+            
+        # RSI Sinyali
+        rsi_values = self.rsi.calculate(klines)
+        if rsi_values["rsi"][curr_idx] is not None:
+            rsi_val = rsi_values["rsi"][curr_idx]
+            if rsi_val < RSI_OVERSOLD:
+                signals["rsi"] = "BUY"
+            elif rsi_val > RSI_OVERBOUGHT:
+                signals["rsi"] = "SELL"
+            else:
+                signals["rsi"] = "NEUTRAL"
+        else:
+            signals["rsi"] = "NEUTRAL"
+            
+        # MACD Sinyali
+        macd_values = self.macd.calculate(klines)
+        if (macd_values["macd"][curr_idx] is not None and 
+            macd_values["signal"][curr_idx] is not None):
+            macd_line = macd_values["macd"][curr_idx]
+            macd_signal = macd_values["signal"][curr_idx]
+            if macd_line > macd_signal:
+                signals["macd"] = "BUY"
+            elif macd_line < macd_signal:
+                signals["macd"] = "SELL"
+            else:
+                signals["macd"] = "NEUTRAL"
+        else:
+            signals["macd"] = "NEUTRAL"
+            
+        # Stochastic RSI Sinyali
+        stoch_rsi_values = self.stoch_rsi.calculate(klines)
+        if stoch_rsi_values["stoch_rsi_k"][curr_idx] is not None:
+            stoch_rsi_k = stoch_rsi_values["stoch_rsi_k"][curr_idx]
+            if stoch_rsi_k < STOCH_RSI_OVERSOLD:
+                signals["stoch_rsi"] = "BUY"
+            elif stoch_rsi_k > STOCH_RSI_OVERBOUGHT:
+                signals["stoch_rsi"] = "SELL"
+            else:
+                signals["stoch_rsi"] = "NEUTRAL"
+        else:
+            signals["stoch_rsi"] = "NEUTRAL"
+            
+        # Williams %R Sinyali
+        williams_r_values = self.williams_r.calculate(klines)
+        if williams_r_values["williams_r"][curr_idx] is not None:
+            williams_r_val = williams_r_values["williams_r"][curr_idx]
+            if williams_r_val < WILLIAMS_R_OVERSOLD:
+                signals["williams_r"] = "BUY"
+            elif williams_r_val > WILLIAMS_R_OVERBOUGHT:
+                signals["williams_r"] = "SELL"
+            else:
+                signals["williams_r"] = "NEUTRAL"
+        else:
+            signals["williams_r"] = "NEUTRAL"
+            
+        # Fisher Transform Sinyali
+        fisher_values = self.fisher.calculate(klines)
+        if (fisher_values["fisher"][curr_idx] is not None and 
+            fisher_values["trigger"][curr_idx] is not None):
+            fisher_val = fisher_values["fisher"][curr_idx]
+            fisher_trigger = fisher_values["trigger"][curr_idx]
+            if fisher_val > fisher_trigger and fisher_val > FISHER_BEARISH_THRESHOLD:
+                signals["fisher"] = "BUY"
+            elif fisher_val < fisher_trigger and fisher_val < FISHER_BULLISH_THRESHOLD:
+                signals["fisher"] = "SELL"
+            else:
+                signals["fisher"] = "NEUTRAL"
+        else:
+            signals["fisher"] = "NEUTRAL"
+            
+        # Coral Trend Sinyali
+        coral_values = self.coral.calculate(klines)
+        if coral_values["trend"][curr_idx] is not None:
+            coral_trend = coral_values["trend"][curr_idx]
+            if coral_trend == 1:
+                signals["coral"] = "BUY"
+            elif coral_trend == -1:
+                signals["coral"] = "SELL"
+            else:
+                signals["coral"] = "NEUTRAL"
+        else:
+            signals["coral"] = "NEUTRAL"
+            
+        return signals
+
+    def analyze(self, indicator_values: List[float], klines: List[List]) -> Tuple[str, Dict[str, Any]]:
         # Tüm indikatörleri hesapla
         cmo_values = self.cmo.calculate(klines)
         stoch_values = self.stoch.calculate(klines)
@@ -301,58 +183,21 @@ class AllIndicatorsStrategy(IStrategy):
         fisher_values = self.fisher.calculate(klines)
         coral_values = self.coral.calculate(klines)
         
-        curr_idx = -1
+        # Bireysel sinyalleri al
+        individual_signals = self._get_individual_signals(klines)
         
-        # Eğer herhangi biri None ise sinyal yok
-        if (cmo_values["cmo"][curr_idx] is None or 
-            stoch_values["stoch_k"][curr_idx] is None or 
-            rsi_values["rsi"][curr_idx] is None or
-            macd_values["macd"][curr_idx] is None or
-            macd_values["signal"][curr_idx] is None or
-            stoch_rsi_values["stoch_rsi_k"][curr_idx] is None or
-            williams_r_values["williams_r"][curr_idx] is None or
-            fisher_values["fisher"][curr_idx] is None or
-            fisher_values["trigger"][curr_idx] is None or
-            coral_values["coral"][curr_idx] is None or
-            coral_values["trend"][curr_idx] is None):
-            pass
+        # Oyları say
+        buy_votes = sum(1 for signal in individual_signals.values() if signal == "BUY")
+        sell_votes = sum(1 for signal in individual_signals.values() if signal == "SELL")
+        neutral_votes = sum(1 for signal in individual_signals.values() if signal == "NEUTRAL")
+        
+        # Majority vote ile karar ver
+        if buy_votes >= MINIMUM_VOTE_THRESHOLD:
+            final_signal = "BUY"
+        elif sell_votes >= MINIMUM_VOTE_THRESHOLD:
+            final_signal = "SELL"
         else:
-            cmo_val = cmo_values["cmo"][curr_idx]
-            stoch_k = stoch_values["stoch_k"][curr_idx]
-            stoch_d = stoch_values["stoch_d"][curr_idx]
-            rsi_val = rsi_values["rsi"][curr_idx]
-            macd_line = macd_values["macd"][curr_idx]
-            macd_signal = macd_values["signal"][curr_idx]
-            macd_histogram = macd_values["histogram"][curr_idx]
-            stoch_rsi_k = stoch_rsi_values["stoch_rsi_k"][curr_idx]
-            stoch_rsi_d = stoch_rsi_values["stoch_rsi_d"][curr_idx]
-            williams_r_val = williams_r_values["williams_r"][curr_idx]
-            fisher_val = fisher_values["fisher"][curr_idx]
-            fisher_trigger = fisher_values["trigger"][curr_idx]
-            coral_trend = coral_values["trend"][curr_idx]
-            
-            # BUY sinyali: Tüm indikatörler oversold/bullish
-            if (cmo_val < CMO_OVERSOLD and 
-                stoch_k < STOCH_OVERSOLD and 
-                rsi_val < RSI_OVERSOLD and
-                macd_line > macd_signal and
-                stoch_rsi_k < STOCH_RSI_OVERSOLD and
-                williams_r_val < WILLIAMS_R_OVERSOLD and
-                fisher_val > fisher_trigger and
-                fisher_val > FISHER_BEARISH_THRESHOLD and
-                coral_trend == 1):  # Coral Trend Bullish
-                signal = "BUY"
-            # SELL sinyali: Tüm indikatörler overbought/bearish
-            elif (cmo_val > CMO_OVERBOUGHT and 
-                  stoch_k > STOCH_OVERBOUGHT and 
-                  rsi_val > RSI_OVERBOUGHT and
-                  macd_line < macd_signal and
-                  stoch_rsi_k > STOCH_RSI_OVERBOUGHT and
-                  williams_r_val > WILLIAMS_R_OVERBOUGHT and
-                  fisher_val < fisher_trigger and
-                  fisher_val < FISHER_BULLISH_THRESHOLD and
-                  coral_trend == -1):  # Coral Trend Bearish
-                signal = "SELL"
+            final_signal = "NEUTRAL"
 
         context: Dict[str, Any] = {
             "indicators": {
@@ -370,6 +215,14 @@ class AllIndicatorsStrategy(IStrategy):
                 "fisher_trigger": fisher_values["trigger"],
                 "coral": coral_values["coral"],
                 "coral_trend": coral_values["trend"]
+            },
+            "vote_breakdown": {
+                "individual_signals": individual_signals,
+                "buy_votes": buy_votes,
+                "sell_votes": sell_votes,
+                "neutral_votes": neutral_votes,
+                "threshold": MINIMUM_VOTE_THRESHOLD,
+                "final_signal": final_signal
             }
         }
-        return signal, context
+        return final_signal, context

@@ -8,71 +8,7 @@ from datetime import datetime
 import pytz
 import time
 from typing import Dict, Optional
-try:
-    from config import (
-        ADVANCED_BIAS_ENABLED,
-        CCI_ZONE_EXTREME_POSITIVE,
-        CCI_ZONE_POSITIVE,
-        CCI_ZONE_MID_POSITIVE,
-        CCI_ZONE_MID_NEGATIVE,
-        CCI_ZONE_NEGATIVE,
-        CCI_ZONE_EXTREME_NEGATIVE,
-    )
-except ImportError:  # fallback safety
-    ADVANCED_BIAS_ENABLED = False
-    # Sensible internal defaults if config import fails
-    CCI_ZONE_EXTREME_POSITIVE = 200
-    CCI_ZONE_POSITIVE = 100
-    CCI_ZONE_MID_POSITIVE = 30
-    CCI_ZONE_MID_NEGATIVE = -30
-    CCI_ZONE_NEGATIVE = -100
-    CCI_ZONE_EXTREME_NEGATIVE = -200
 
-
-def _format_ema_trend(price: float, ema_13: float, ema_21: float, ema_55: float) -> str:
-    if price > ema_13 and price > ema_21 and price > ema_55:
-        return "Pozitif 📈"
-    if price < ema_13 and price < ema_21 and price < ema_55:
-        return "Negatif 📉"
-    return "Nötr ➡️"
-
-
-def _format_wavetrend(indicators: Dict) -> str:
-    if 'wt1' not in indicators or 'wt2' not in indicators:
-        return ""
-    wt1 = indicators['wt1']
-    wt2 = indicators['wt2']
-    wt_cross_up = indicators.get('wt_cross_up', False)
-    wt_cross_down = indicators.get('wt_cross_down', False)
-    wt_status = ""
-    if wt_cross_down and wt2 > 60:
-        wt_status = " 🔴 CROSS DOWN - SELL!"
-    elif wt_cross_up and wt2 < -60:
-        wt_status = " 🟢 CROSS UP - BUY!"
-    elif wt_cross_up:
-        wt_status = " 🟢 CROSS UP"
-    elif wt_cross_down:
-        wt_status = " 🔴 CROSS DOWN"
-
-    if wt1 > 60:
-        wt_level = " (Aşırı Alım)"
-    elif wt1 < -60:
-        wt_level = " (Aşırı Satım)"
-    else:
-        wt_level = ""
-    return f"WT: {wt1:.1f} / {wt2:.1f}{wt_status}{wt_level}"
-
-
-def _format_rsi(indicators: Dict) -> str:
-    rsi = indicators.get('rsi')
-    if rsi is None:
-        return ""
-    status = ""
-    if rsi < 15:
-        status = " (🟢 BUY için uygun)"
-    elif rsi > 85:
-        status = " (🔴 SELL için uygun)"
-    return f"RSI: {rsi:.1f}{status}"
 
 
 def _format_cmo(indicators: Dict) -> str:
@@ -154,189 +90,83 @@ def _format_coral(indicators: Dict) -> str:
     return f"Coral: {coral:.2f}{trend_status}"
 
 
-def _format_dmi(indicators: Dict) -> str:
-    if not all(k in indicators for k in ['plus_di', 'minus_di', 'adx']):
+def _format_vote_breakdown(indicators: Dict) -> str:
+    """MajorityVoteStrategy için oylama detaylarını formatla"""
+    vote_info = indicators.get('vote_breakdown')
+    if not vote_info:
         return ""
-    return f"DMI: +DI {indicators['plus_di']:.1f} | -DI {indicators['minus_di']:.1f} | ADX {indicators['adx']:.1f}"
-
-
-def _cci_zone_comment(cci_value: float) -> str:
-    """CCI değeri için kısa bölge/uyarı etiketi döner.
-
-    Eşik mantığı:
-      > +200  : Aşırı Pozitif (Agresif Pozitif Bölge)
-      +100..200: Pozitif Bölge (Olası Dönüş Riski Artıyor)
-      +30..+100: Ilımlı Pozitif
-      -30..+30 : Nötr Konsolidasyon
-      -100..-30: Ilımlı Negatif
-      -200..-100: Negatif Bölge (Potansiyel Tepki Alanı)
-      < -200  : Aşırı Negatif (Agresif Negatif Bölge)
-    """
-    c = cci_value
-    if c > CCI_ZONE_EXTREME_POSITIVE:
-        return "Aşırı Pozitif ⚠️"
-    if c > CCI_ZONE_POSITIVE:
-        return "Pozitif Bölge"
-    if c > CCI_ZONE_MID_POSITIVE:
-        return "Ilımlı Pozitif"
-    if c >= CCI_ZONE_MID_NEGATIVE:
-        return "Nötr"
-    if c >= CCI_ZONE_NEGATIVE:
-        return "Ilımlı Negatif"
-    if c >= CCI_ZONE_EXTREME_NEGATIVE:
-        return "Negatif Bölge 🎯"
-    return "Aşırı Negatif ⚠️"
-
-
-def _interpret_dmi(indicators: Dict) -> str:
-    """ADX gücü ve DMI dominansı yorumlar.
-
-    Eşikler (piyasa genel pratikleri + basitleştirilmiş):
-      - ADX < 15: Zayıf trend
-      - 15 ≤ ADX < 25: Oluşum / belirsiz
-      - 25 ≤ ADX < 35: Orta güçte trend
-      - 35 ≤ ADX < 50: Güçlü trend
-      - ADX ≥ 50: Çok güçlü (yorulma riski)
-
-    Dominans:
-      - +DI -DI'dan en az 2 puan yüksekse: Boğa dominansı
-      - -DI +DI'dan en az 2 puan yüksekse: Ayı dominansı
-      - Aksi halde Kararsız
-    """
-    if not all(k in indicators for k in ['plus_di', 'minus_di', 'adx']):
-        return ""
-    plus_di = indicators['plus_di']
-    minus_di = indicators['minus_di']
-    adx = indicators['adx']
-
-    # ADX güç etiketi
-    if adx < 15:
-        adx_tag = "Zayıf"
-    elif adx < 25:
-        adx_tag = "Oluşuyor"
-    elif adx < 35:
-        adx_tag = "Orta"
-    elif adx < 50:
-        adx_tag = "Güçlü"
-    else:
-        adx_tag = "Çok Güçlü ⚠️"
-
-    # Dominans
-    if plus_di - minus_di >= 2:
-        dom = "Boğa"
-    elif minus_di - plus_di >= 2:
-        dom = "Ayı"
-    else:
-        dom = "Kararsız"
-
-    return f"Trend: {adx_tag} | Dominans: {dom}"
-
-
-def _compute_bias(signal: str, indicators: Dict) -> Optional[str]:
-    """CCI sinyali + EMA trend + DMI dominansı üzerinden birleşik bias.
-    Bu sadece yorumlayıcıdır; asıl sinyal CCI kalır.
-    Dönüş: (emoji + kısa özet)
-    """
-    if signal not in ("BUY", "SELL"):
-        return None
-    # EMA trend
-    ema_bias = None
-    if {'ema_13','ema_21','ema_55'} <= indicators.keys():
-        price = indicators.get('price_for_trend') or indicators.get('close') or indicators.get('price')
-        # Fiyat bilgisi yoksa ema bias hesaplamayı atla
-        ema_13, ema_21, ema_55 = indicators['ema_13'], indicators['ema_21'], indicators['ema_55']
-        if price is not None:
-            if price > ema_13 and price > ema_21 and price > ema_55:
-                ema_bias = 'Boğa'
-            elif price < ema_13 and price < ema_21 and price < ema_55:
-                ema_bias = 'Ayı'
-            else:
-                ema_bias = 'Nötr'
-
-    # DMI dominansı
-    dmi_dom = None
-    if all(k in indicators for k in ['plus_di','minus_di','adx']):
-        plus_di = indicators['plus_di']
-        minus_di = indicators['minus_di']
-        if plus_di - minus_di >= 2:
-            dmi_dom = 'Boğa'
-        elif minus_di - plus_di >= 2:
-            dmi_dom = 'Ayı'
-        else:
-            dmi_dom = 'Kararsız'
-
-    votes = []
-    # CCI sinyalinin yönü
-    votes.append('Boğa' if signal == 'BUY' else 'Ayı')
-    if ema_bias:
-        votes.append(ema_bias)
-    if dmi_dom:
-        votes.append(dmi_dom)
-
-    # Skorla: Boğa +1, Ayı -1, Kararsız 0, Nötr 0
-    score = 0
-    for v in votes:
-        if v == 'Boğa':
-            score += 1
-        elif v == 'Ayı':
-            score -= 1
-
-    if score >= 2:
-        summary = "Güçlü Boğa Bias"
-        emoji = "🟢"
-    elif score == 1:
-        summary = "Hafif Boğa Bias"
-        emoji = "🟢"
-    elif score == 0:
-        summary = "Karışık"
-        emoji = "⚪"
-    elif score == -1:
-        summary = "Hafif Ayı Bias"
-        emoji = "🔴"
-    else:  # score <= -2
-        summary = "Güçlü Ayı Bias"
-        emoji = "🔴"
-
-    detail = ",".join(votes)
-    return f"{emoji} Birleşik Bias: {summary} ({detail})"
-
-
-def _format_td_sequential(indicators: Dict) -> str:
-    """TD Sequential değerlerini yorumla ve formatla.
-
-    Returns:
-        Boş string veya TD Sequential satırı
-    """
-    if 'td_up' not in indicators or 'td_down' not in indicators:
-        return ""
-
-    td_up = int(indicators.get('td_up', 0))
-    td_down = int(indicators.get('td_down', 0))
-
-    # TD Sequential 9 sinyalleri (en güçlü)
-    if td_down == 9:
-        return "TD Sequential: 🚀 LONG (9/9) - Momentum tükendi!"
-    if td_up == 9:
-        return "TD Sequential: ☂️ SHORT (9/9) - Momentum tükendi!"
-
-    # TD Sequential 7-8 uyarıları
-    if td_down == 8:
-        return f"TD Sequential: ⚠️ ({td_down}/9) - 🚀 LONG yakın"
-    if td_down == 7:
-        return f"TD Sequential: ({td_down}/9) - 🚀 LONG uyarısı"
-
-    if td_up == 8:
-        return f"TD Sequential: ⚠️ ({td_up}/9) - ☂️ SHORT yakın"
-    if td_up == 7:
-        return f"TD Sequential: ({td_up}/9) - ☂️ SHORT uyarısı"
-
-    # 1-6 arası sadece değeri göster
-    if td_down > 0:
-        return f"TD Sequential: ⬇️ ({td_down}/9) Bearish count"
-    if td_up > 0:
-        return f"TD Sequential: ⬆️ ({td_up}/9) Bullish count"
-
-    return ""
+    
+    individual_signals = vote_info.get('individual_signals', {})
+    buy_votes = vote_info.get('buy_votes', 0)
+    sell_votes = vote_info.get('sell_votes', 0) 
+    neutral_votes = vote_info.get('neutral_votes', 0)
+    threshold = vote_info.get('threshold', 4)
+    
+    # Oylama özeti
+    vote_summary = f"📊 Oylama: {buy_votes}🟢 {sell_votes}🔴 {neutral_votes}⚪ (Min: {threshold})"
+    
+    # Bireysel sinyaller (değerlerle birlikte, alt alta)
+    signal_lines = []
+    signal_emojis = {"BUY": "🟢", "SELL": "🔴", "NEUTRAL": "⚪"}
+    
+    curr_idx = -1  # Son kapanmış mum
+    
+    # İndikatör sırası (görsel düzen için)
+    indicator_order = ["cmo", "stoch", "rsi", "macd", "stoch_rsi", "williams_r", "fisher", "coral"]
+    
+    for indicator in indicator_order:
+        if indicator not in individual_signals:
+            continue
+            
+        signal = individual_signals[indicator]
+        emoji = signal_emojis.get(signal, "❓")
+        value_str = ""
+        
+        # Her indikatör için değer çek
+        if indicator == "cmo" and indicators.get('cmo'):
+            val = indicators['cmo']['cmo'][curr_idx] if indicators['cmo']['cmo'][curr_idx] is not None else 0
+            value_str = f"{val:.1f}"
+        elif indicator == "stoch" and indicators.get('stoch_k'):
+            val = indicators['stoch_k'][curr_idx] if indicators['stoch_k'][curr_idx] is not None else 0
+            value_str = f"{val:.1f}"
+        elif indicator == "rsi" and indicators.get('rsi'):
+            val = indicators['rsi']['rsi'][curr_idx] if indicators['rsi']['rsi'][curr_idx] is not None else 0
+            value_str = f"{val:.1f}"
+        elif indicator == "macd" and indicators.get('macd'):
+            macd_val = indicators['macd'][curr_idx] if indicators['macd'][curr_idx] is not None else 0
+            signal_val = indicators.get('macd_signal', [0])[curr_idx] if indicators.get('macd_signal', [0])[curr_idx] is not None else 0
+            cross_symbol = ">" if macd_val > signal_val else "<"
+            value_str = f"{macd_val:.3f} {cross_symbol} {signal_val:.3f}"
+        elif indicator == "stoch_rsi" and indicators.get('stoch_rsi_k'):
+            val = indicators['stoch_rsi_k'][curr_idx] if indicators['stoch_rsi_k'][curr_idx] is not None else 0
+            value_str = f"{val:.1f}"
+        elif indicator == "williams_r" and indicators.get('williams_r'):
+            val = indicators['williams_r']['williams_r'][curr_idx] if indicators['williams_r']['williams_r'][curr_idx] is not None else 0
+            value_str = f"{val:.1f}"
+        elif indicator == "fisher" and indicators.get('fisher'):
+            fisher_val = indicators['fisher'][curr_idx] if indicators['fisher'][curr_idx] is not None else 0
+            trigger_val = indicators.get('fisher_trigger', [0])[curr_idx] if indicators.get('fisher_trigger', [0])[curr_idx] is not None else 0
+            value_str = f"{fisher_val:.2f} / {trigger_val:.2f}"
+        elif indicator == "coral" and indicators.get('coral_trend'):
+            trend_val = indicators['coral_trend'][curr_idx] if indicators['coral_trend'][curr_idx] is not None else 0
+            trend_text = "Bullish ↗️" if trend_val == 1 else "Bearish ↘️" if trend_val == -1 else "Neutral →"
+            value_str = trend_text
+        
+        # İndikatör adı ve değer (hizalı format)
+        indicator_names = {
+            "cmo": "CMO", "stoch": "Stochastic", "rsi": "RSI", "macd": "MACD",
+            "stoch_rsi": "Stoch RSI", "williams_r": "Williams %R", "fisher": "Fisher", "coral": "Coral Trend"
+        }
+        name = indicator_names.get(indicator, indicator.upper())
+        signal_lines.append(f"   ├─ {emoji} {name:<12}: {value_str}")
+    
+    # Son satır için farklı karakter
+    if signal_lines:
+        signal_lines[-1] = signal_lines[-1].replace("├─", "└─")
+    
+    details_block = "\n".join(signal_lines)
+    
+    return f"{vote_summary}\n{details_block}"
 
 
 def _format_time_ago(timestamp: int) -> str:
@@ -368,7 +198,7 @@ class ShortTermMessageBuilder:
 
         turkey_tz = pytz.timezone('Europe/Istanbul')
         turkey_time = datetime.now(turkey_tz)
-        message = f"*🚨 📊 Kısa Vade Analiz - {symbol} 📊 🚨*\n"
+        message = f"*🏆🏆🏆 ✨ Kısa Vade Analiz - {symbol} ✨ 🏆🏆🏆*\n"
         message += f"🕒 {turkey_time.strftime('%d.%m.%Y %H:%M:%S')} (TR)\n"
         message += f"💰 Fiyat: ${price:.4f}\n\n"
 
@@ -382,9 +212,16 @@ class ShortTermMessageBuilder:
                     message += f"{tf_info['emoji']} {tf_info['name']}: 🟢🟢 *BUY* 🟢🟢\n"
                 elif signal_type == "SELL":
                     message += f"{tf_info['emoji']} {tf_info['name']}: 🔴🔴 *SELL* 🔴🔴\n"
-                cmo_line = _format_cmo(indicators)
-                if cmo_line:
-                    message += f"   └─ {cmo_line}\n"
+                
+                # Vote breakdown göster (MajorityVoteStrategy için)
+                vote_line = _format_vote_breakdown(indicators)
+                if vote_line:
+                    message += f"   {vote_line}\n"
+                else:
+                    # Fallback: Sadece CMO göster (eski sistem uyumluluğu)
+                    cmo_line = _format_cmo(indicators)
+                    if cmo_line:
+                        message += f"   └─ {cmo_line}\n"
             else:
                 last_signal, last_ts = tracker.get_last_signal(symbol, timeframe)
                 if last_signal != "NEUTRAL" and last_ts:
@@ -412,9 +249,9 @@ class LongTermMessageBuilder:
         turkey_tz = pytz.timezone('Europe/Istanbul')
         turkey_time = datetime.now(turkey_tz)
 
-        header = "💃💃💃 " + "="*30 + " 💃💃💃"
+        header = "🏆🏆🏆 " + "="*30 + " 🏆🏆🏆"
         message = f"{header}\n"
-        message += f"*🚨 UZUN VADELİ ANALİZ - {symbol} 🚨*\n"
+        message += f"*🥇🥇🥇 UZUN VADELİ ANALİZ - {symbol} 🥇🥇🥇*\n"
         message += f"{header}\n\n"
         message += f"🕒 {turkey_time.strftime('%d.%m.%Y %H:%M:%S')} (TR)\n"
         message += f"💰 Fiyat: ${price:.4f}\n\n"
@@ -429,9 +266,16 @@ class LongTermMessageBuilder:
                     message += f"{tf_info['emoji']} {tf_info['name']}: 🟢🟢 *BUY* 🟢🟢\n"
                 elif signal_type == "SELL":
                     message += f"{tf_info['emoji']} {tf_info['name']}: 🔴🔴 *SELL* 🔴🔴\n"
-                cmo_line = _format_cmo(indicators)
-                if cmo_line:
-                    message += f"   └─ {cmo_line}\n"
+                
+                # Vote breakdown göster (MajorityVoteStrategy için)
+                vote_line = _format_vote_breakdown(indicators)
+                if vote_line:
+                    message += f"   {vote_line}\n"
+                else:
+                    # Fallback: Sadece CMO göster (eski sistem uyumluluğu)
+                    cmo_line = _format_cmo(indicators)
+                    if cmo_line:
+                        message += f"   └─ {cmo_line}\n"
             else:
                 last_signal, last_ts = tracker.get_last_signal(symbol, timeframe)
                 if last_signal != "NEUTRAL" and last_ts:
