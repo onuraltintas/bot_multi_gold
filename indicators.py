@@ -433,3 +433,281 @@ class StochasticRSI(IIndicator):
             "stoch_rsi_k": stoch_rsi_k,
             "stoch_rsi_d": stoch_rsi_d
         }
+
+
+class WilliamsR(IIndicator):
+    """Williams %R Indikatörü
+    
+    Williams %R, Stochastic oscillator'un ters çevrilmiş versiyonudur.
+    Fiyatın belirli bir periyottaki en yüksek ve en düşük değerler arasındaki konumunu gösterir.
+    
+    Formül: %R = ((Highest High - Close) / (Highest High - Lowest Low)) * -100
+    
+    Değer Aralığı: -100 ile 0 arasında
+    
+    Yorumlama:
+    - %R > -20: Aşırı alım bölgesi (overbought) - potansiyel satış sinyali
+    - %R < -80: Aşırı satım bölgesi (oversold) - potansiyel alım sinyali
+    - %R -50 civarında: Orta seviye
+    
+    Not: Williams %R değerleri negatiftir (-100 ile 0 arası)
+    """
+    
+    def __init__(self, length: int = 14):
+        """
+        Args:
+            length: Williams %R hesaplama periyodu (varsayılan: 14)
+        """
+        self.length = length
+    
+    def calculate(self, klines: List[List]) -> Dict[str, List]:
+        """Williams %R değerlerini hesapla
+        
+        Returns:
+            Dict with 'williams_r' key containing Williams %R values
+        """
+        n = len(klines)
+        williams_r_values = [None] * n
+        
+        if n < self.length:
+            return {"williams_r": williams_r_values}
+        
+        # High, Low, Close fiyatlarını al
+        highs = [float(k[2]) for k in klines]    # High fiyatları (index 2)
+        lows = [float(k[3]) for k in klines]     # Low fiyatları (index 3)
+        closes = [float(k[4]) for k in klines]   # Close fiyatları (index 4)
+        
+        for i in range(self.length - 1, n):
+            # Son 'length' periyot için highest high ve lowest low bul
+            period_highs = highs[i - self.length + 1:i + 1]
+            period_lows = lows[i - self.length + 1:i + 1]
+            
+            highest_high = max(period_highs)
+            lowest_low = min(period_lows)
+            current_close = closes[i]
+            
+            # Williams %R hesapla
+            if highest_high != lowest_low:  # Sıfıra bölme kontrolü
+                williams_r = ((highest_high - current_close) / (highest_high - lowest_low)) * -100
+                williams_r_values[i] = williams_r
+            else:
+                williams_r_values[i] = -50.0  # Orta değer ata
+        
+        return {"williams_r": williams_r_values}
+
+
+class FisherTransform(IIndicator):
+    """Fisher Transform İndikatörü
+    
+    Fisher Transform, fiyat hareketlerini Gaussian normal dağılıma dönüştürerek
+    trend değişimlerini daha net göstermeyi amaçlar.
+    
+    Formül:
+    1. Value1 = (High + Low) / 2
+    2. MinL = Lowest(Value1, Length)
+    3. MaxH = Highest(Value1, Length)
+    4. Value2 = 2 * ((Value1 - MinL) / (MaxH - MinL) - 0.5)
+    5. Value3 = 0.33 * Value2 + 0.67 * Value3[1]  (smoothing)
+    6. Fisher = 0.5 * ln((1 + Value3) / (1 - Value3))
+    7. Trigger = Fisher[1]
+    
+    Sinyal Yorumlama:
+    - Fisher > Trigger ve Fisher > 0: Güçlü boğa trendi
+    - Fisher < Trigger ve Fisher < 0: Güçlü ayı trendi  
+    - Fisher crosses above Trigger: Alım sinyali
+    - Fisher crosses below Trigger: Satım sinyali
+    - Extreme değerler (±2.5): Reversal bölgeleri
+    """
+    
+    def __init__(self, length: int = 10):
+        """
+        Args:
+            length: Fisher Transform hesaplama periyodu (varsayılan: 10)
+        """
+        self.length = length
+    
+    def calculate(self, klines: List[List]) -> Dict[str, List]:
+        """Fisher Transform değerlerini hesapla
+        
+        Returns:
+            Dict with 'fisher' and 'trigger' keys containing Fisher Transform values
+        """
+        import math
+        
+        n = len(klines)
+        fisher_values = [None] * n
+        trigger_values = [None] * n
+        
+        if n < self.length:
+            return {"fisher": fisher_values, "trigger": trigger_values}
+        
+        # High, Low fiyatlarını al
+        highs = [float(k[2]) for k in klines]    # High fiyatları (index 2)
+        lows = [float(k[3]) for k in klines]     # Low fiyatları (index 3)
+        
+        # Value1 = (High + Low) / 2 (típical price)
+        value1 = [(highs[i] + lows[i]) / 2 for i in range(n)]
+        
+        # Value3 için smoothing değişkeni
+        value3_prev = 0.0
+        
+        for i in range(self.length - 1, n):
+            # MinL ve MaxH hesapla (son 'length' periyot için)
+            period_values = value1[i - self.length + 1:i + 1]
+            min_l = min(period_values)
+            max_h = max(period_values)
+            
+            # Value2 hesapla
+            if max_h != min_l:  # Sıfıra bölme kontrolü
+                value2 = 2 * ((value1[i] - min_l) / (max_h - min_l) - 0.5)
+            else:
+                value2 = 0.0
+            
+            # Value2'yi -0.999 ile +0.999 arasında sınırla (log hatası önleme)
+            value2 = max(-0.999, min(0.999, value2))
+            
+            # Value3 smooth hesapla (EMA benzeri)
+            if i == self.length - 1:
+                value3 = value2  # İlk değer
+            else:
+                value3 = 0.33 * value2 + 0.67 * value3_prev
+            
+            # Value3'ü de sınırla
+            value3 = max(-0.999, min(0.999, value3))
+            
+            # Fisher Transform hesapla
+            try:
+                fisher = 0.5 * math.log((1 + value3) / (1 - value3))
+            except (ValueError, ZeroDivisionError):
+                fisher = 0.0
+            
+            fisher_values[i] = fisher
+            
+            # Trigger = Fisher'ın bir önceki değeri
+            if i > self.length - 1:
+                trigger_values[i] = fisher_values[i - 1]
+            else:
+                trigger_values[i] = fisher  # İlk değer için kendisi
+            
+            value3_prev = value3
+        
+        return {"fisher": fisher_values, "trigger": trigger_values}
+
+
+class CoralTrend(IIndicator):
+    """Coral Trend İndikatörü
+    
+    Coral Trend, smoothed moving average tabanlı bir trend following indikatörüdür.
+    Adaptive moving average kullanarak trend yönünü ve gücünü belirler.
+    
+    Formül:
+    1. i1 = (High + Low) / 2
+    2. i2 = Average True Range (ATR) 
+    3. i3 = i1 + (i2 * multiplier)
+    4. i4 = i1 - (i2 * multiplier)
+    5. i5 = EMA(i1, period)
+    6. i6 = i5 > i5[1] ? i3 : i4  (adaptive level)
+    7. Coral = EMA(i6, period)
+    
+    Sinyal Yorumlama:
+    - Price > Coral: Bullish trend (yeşil renk)
+    - Price < Coral: Bearish trend (kırmızı renk)
+    - Coral trend direction change: Entry/Exit sinyali
+    - Coral slope: Trend gücünü gösterir
+    """
+    
+    def __init__(self, period: int = 21, multiplier: float = 0.4):
+        """
+        Args:
+            period: EMA periyodu (varsayılan: 21)
+            multiplier: ATR çarpanı (varsayılan: 0.4)
+        """
+        self.period = period
+        self.multiplier = multiplier
+    
+    def calculate(self, klines: List[List]) -> Dict[str, List]:
+        """Coral Trend değerlerini hesapla
+        
+        Returns:
+            Dict with 'coral' and 'trend' keys containing Coral Trend values
+        """
+        n = len(klines)
+        coral_values = [None] * n
+        trend_values = [None] * n  # 1: Bullish, -1: Bearish, 0: Neutral
+        
+        if n < self.period + 1:
+            return {"coral": coral_values, "trend": trend_values}
+        
+        # High, Low, Close fiyatlarını al
+        highs = [float(k[2]) for k in klines]    # High fiyatları (index 2)
+        lows = [float(k[3]) for k in klines]     # Low fiyatları (index 3)
+        closes = [float(k[4]) for k in klines]   # Close fiyatları (index 4)
+        
+        # True Range hesapla
+        true_ranges = [0.0] * n
+        for i in range(1, n):
+            high_low = highs[i] - lows[i]
+            high_close_prev = abs(highs[i] - closes[i-1])
+            low_close_prev = abs(lows[i] - closes[i-1])
+            true_ranges[i] = max(high_low, high_close_prev, low_close_prev)
+        
+        # ATR hesapla (EMA ile)
+        atr_values = [0.0] * n
+        alpha = 2.0 / (self.period + 1)
+        
+        # İlk ATR değeri (basit ortalama)
+        atr_values[self.period] = sum(true_ranges[1:self.period+1]) / self.period
+        
+        # EMA ile ATR hesapla
+        for i in range(self.period + 1, n):
+            atr_values[i] = alpha * true_ranges[i] + (1 - alpha) * atr_values[i-1]
+        
+        # Coral Trend hesapla
+        ema1_prev = 0.0
+        ema2_prev = 0.0
+        
+        for i in range(self.period, n):
+            # i1 = (High + Low) / 2 (median price)
+            i1 = (highs[i] + lows[i]) / 2
+            
+            # i2 = ATR
+            i2 = atr_values[i]
+            
+            # i3, i4 = upper ve lower band
+            i3 = i1 + (i2 * self.multiplier)
+            i4 = i1 - (i2 * self.multiplier)
+            
+            # i5 = EMA of median price
+            if i == self.period:
+                i5 = i1  # İlk değer
+            else:
+                i5 = alpha * i1 + (1 - alpha) * ema1_prev
+            
+            # i6 = adaptive level (trend yönüne göre band seç)
+            if i == self.period:
+                i6 = i1  # İlk değer
+            else:
+                i6 = i3 if i5 > ema1_prev else i4
+            
+            # Coral = EMA of adaptive level
+            if i == self.period:
+                coral = i6  # İlk değer
+            else:
+                coral = alpha * i6 + (1 - alpha) * ema2_prev
+            
+            coral_values[i] = coral
+            
+            # Trend direction belirleme
+            current_price = closes[i]
+            if current_price > coral:
+                trend_values[i] = 1   # Bullish
+            elif current_price < coral:
+                trend_values[i] = -1  # Bearish
+            else:
+                trend_values[i] = 0   # Neutral
+            
+            # Sonraki iterasyon için değerleri sakla
+            ema1_prev = i5
+            ema2_prev = coral
+        
+        return {"coral": coral_values, "trend": trend_values}

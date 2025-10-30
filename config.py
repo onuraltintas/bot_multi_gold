@@ -56,5 +56,19 @@ STOCH_RSI_SMOOTH_D = 3  # %D smooth periyodu
 STOCH_RSI_OVERBOUGHT = 85  # Aşırı alım seviyesi
 STOCH_RSI_OVERSOLD = 15  # Aşırı satım seviyesi
 
+# Williams %R Parametreleri
+WILLIAMS_R_LENGTH = 10  # Williams %R periyodu
+WILLIAMS_R_OVERBOUGHT = -20  # Aşırı alım seviyesi (Sell sinyali)
+WILLIAMS_R_OVERSOLD = -80  # Aşırı satım seviyesi (Buy sinyali)
+
+# Fisher Transform Parametreleri
+FISHER_LENGTH = 8  # Fisher Transform periyodu
+FISHER_BULLISH_THRESHOLD = 1.5  # Güçlü boğa trendi eşiği
+FISHER_BEARISH_THRESHOLD = -1.5  # Güçlü ayı trendi eşiği
+
+# Coral Trend Parametreleri
+CORAL_PERIOD = 21  # Coral Trend EMA periyodu
+CORAL_MULTIPLIER = 0.4  # ATR çarpanı (0.2-0.6 arası önerilir)
+
 # Twelve Data API Konfigürasyonu
 TWELVE_DATA_API_KEY = os.getenv("TWELVE_DATA_API_KEY", "")

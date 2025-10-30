@@ -7,9 +7,11 @@ from config import (
     CMO_OVERBOUGHT, CMO_OVERSOLD, 
     STOCH_OVERBOUGHT, STOCH_OVERSOLD,
     RSI_OVERBOUGHT, RSI_OVERSOLD,
-    STOCH_RSI_OVERBOUGHT, STOCH_RSI_OVERSOLD
+    STOCH_RSI_OVERBOUGHT, STOCH_RSI_OVERSOLD,
+    WILLIAMS_R_OVERBOUGHT, WILLIAMS_R_OVERSOLD,
+    FISHER_BULLISH_THRESHOLD, FISHER_BEARISH_THRESHOLD
 )
-from indicators import ChandeMomentumOscillator, StochasticOscillator, RelativeStrengthIndex, MACD, StochasticRSI
+from indicators import ChandeMomentumOscillator, StochasticOscillator, RelativeStrengthIndex, MACD, StochasticRSI, WilliamsR, FisherTransform, CoralTrend
 
 
 class IStrategy(ABC):
@@ -254,13 +256,15 @@ class CMOStochasticRSIMACDStrategy(IStrategy):
 
 
 class AllIndicatorsStrategy(IStrategy):
-    """CMO + Stochastic + RSI + MACD + Stochastic RSI - Beşli kombinasyon
+    """CMO + Stochastic + RSI + MACD + Stochastic RSI + Williams %R + Fisher Transform + Coral Trend - Sekizli kombinasyon
     
     Sinyal mantığı:
     - BUY: CMO < oversold VE Stoch K < oversold VE RSI < oversold VE 
-           MACD > Signal VE Stoch RSI K < oversold
+           MACD > Signal VE Stoch RSI K < oversold VE Williams %R < oversold VE
+           Fisher > Trigger VE Fisher > bearish_threshold VE Coral Trend = Bullish
     - SELL: CMO > overbought VE Stoch K > overbought VE RSI > overbought VE 
-            MACD < Signal VE Stoch RSI K > overbought
+            MACD < Signal VE Stoch RSI K > overbought VE Williams %R > overbought VE
+            Fisher < Trigger VE Fisher < bullish_threshold VE Coral Trend = Bearish
     - Tüm indikatörler aynı yönde sinyal verdiğinde işlem yapılır
     """
 
@@ -270,13 +274,19 @@ class AllIndicatorsStrategy(IStrategy):
         stoch_indicator: StochasticOscillator,
         rsi_indicator: RelativeStrengthIndex,
         macd_indicator: MACD,
-        stoch_rsi_indicator: StochasticRSI
+        stoch_rsi_indicator: StochasticRSI,
+        williams_r_indicator: WilliamsR,
+        fisher_indicator: FisherTransform,
+        coral_indicator: CoralTrend
     ):
         self.cmo = cmo_indicator
         self.stoch = stoch_indicator
         self.rsi = rsi_indicator
         self.macd = macd_indicator
         self.stoch_rsi = stoch_rsi_indicator
+        self.williams_r = williams_r_indicator
+        self.fisher = fisher_indicator
+        self.coral = coral_indicator
 
     def analyze(self, indicator_values: List[float], klines: List[List]) -> Tuple[str, Dict[str, Any]]:
         signal = "NEUTRAL"
@@ -287,6 +297,9 @@ class AllIndicatorsStrategy(IStrategy):
         rsi_values = self.rsi.calculate(klines)
         macd_values = self.macd.calculate(klines)
         stoch_rsi_values = self.stoch_rsi.calculate(klines)
+        williams_r_values = self.williams_r.calculate(klines)
+        fisher_values = self.fisher.calculate(klines)
+        coral_values = self.coral.calculate(klines)
         
         curr_idx = -1
         
@@ -296,7 +309,12 @@ class AllIndicatorsStrategy(IStrategy):
             rsi_values["rsi"][curr_idx] is None or
             macd_values["macd"][curr_idx] is None or
             macd_values["signal"][curr_idx] is None or
-            stoch_rsi_values["stoch_rsi_k"][curr_idx] is None):
+            stoch_rsi_values["stoch_rsi_k"][curr_idx] is None or
+            williams_r_values["williams_r"][curr_idx] is None or
+            fisher_values["fisher"][curr_idx] is None or
+            fisher_values["trigger"][curr_idx] is None or
+            coral_values["coral"][curr_idx] is None or
+            coral_values["trend"][curr_idx] is None):
             pass
         else:
             cmo_val = cmo_values["cmo"][curr_idx]
@@ -308,20 +326,32 @@ class AllIndicatorsStrategy(IStrategy):
             macd_histogram = macd_values["histogram"][curr_idx]
             stoch_rsi_k = stoch_rsi_values["stoch_rsi_k"][curr_idx]
             stoch_rsi_d = stoch_rsi_values["stoch_rsi_d"][curr_idx]
+            williams_r_val = williams_r_values["williams_r"][curr_idx]
+            fisher_val = fisher_values["fisher"][curr_idx]
+            fisher_trigger = fisher_values["trigger"][curr_idx]
+            coral_trend = coral_values["trend"][curr_idx]
             
             # BUY sinyali: Tüm indikatörler oversold/bullish
             if (cmo_val < CMO_OVERSOLD and 
                 stoch_k < STOCH_OVERSOLD and 
                 rsi_val < RSI_OVERSOLD and
                 macd_line > macd_signal and
-                stoch_rsi_k < STOCH_RSI_OVERSOLD):
+                stoch_rsi_k < STOCH_RSI_OVERSOLD and
+                williams_r_val < WILLIAMS_R_OVERSOLD and
+                fisher_val > fisher_trigger and
+                fisher_val > FISHER_BEARISH_THRESHOLD and
+                coral_trend == 1):  # Coral Trend Bullish
                 signal = "BUY"
             # SELL sinyali: Tüm indikatörler overbought/bearish
             elif (cmo_val > CMO_OVERBOUGHT and 
                   stoch_k > STOCH_OVERBOUGHT and 
                   rsi_val > RSI_OVERBOUGHT and
                   macd_line < macd_signal and
-                  stoch_rsi_k > STOCH_RSI_OVERBOUGHT):
+                  stoch_rsi_k > STOCH_RSI_OVERBOUGHT and
+                  williams_r_val > WILLIAMS_R_OVERBOUGHT and
+                  fisher_val < fisher_trigger and
+                  fisher_val < FISHER_BULLISH_THRESHOLD and
+                  coral_trend == -1):  # Coral Trend Bearish
                 signal = "SELL"
 
         context: Dict[str, Any] = {
@@ -334,7 +364,12 @@ class AllIndicatorsStrategy(IStrategy):
                 "macd_signal": macd_values["signal"],
                 "macd_histogram": macd_values["histogram"],
                 "stoch_rsi_k": stoch_rsi_values["stoch_rsi_k"],
-                "stoch_rsi_d": stoch_rsi_values["stoch_rsi_d"]
+                "stoch_rsi_d": stoch_rsi_values["stoch_rsi_d"],
+                "williams_r": williams_r_values,
+                "fisher": fisher_values["fisher"],
+                "fisher_trigger": fisher_values["trigger"],
+                "coral": coral_values["coral"],
+                "coral_trend": coral_values["trend"]
             }
         }
         return signal, context

@@ -12,10 +12,11 @@ from config import (
     STOCH_PERIOD_K, STOCH_SMOOTH_K, STOCH_SMOOTH_D,
     RSI_LENGTH,
     MACD_FAST_LENGTH, MACD_SLOW_LENGTH, MACD_SIGNAL_LENGTH,
-    STOCH_RSI_LENGTH_RSI, STOCH_RSI_LENGTH_STOCH, STOCH_RSI_SMOOTH_K, STOCH_RSI_SMOOTH_D
+    STOCH_RSI_LENGTH_RSI, STOCH_RSI_LENGTH_STOCH, STOCH_RSI_SMOOTH_K, STOCH_RSI_SMOOTH_D,
+    WILLIAMS_R_LENGTH, FISHER_LENGTH, CORAL_PERIOD, CORAL_MULTIPLIER
 )
 from core import TwelveDataClient, TimeframeScheduler, SignalTracker, TelegramNotifier
-from indicators import ChandeMomentumOscillator, StochasticOscillator, RelativeStrengthIndex, MACD, StochasticRSI
+from indicators import ChandeMomentumOscillator, StochasticOscillator, RelativeStrengthIndex, MACD, StochasticRSI, WilliamsR, FisherTransform, CoralTrend
 from strategies import AllIndicatorsStrategy
 from analyzer import CryptoAnalyzer
 
@@ -75,14 +76,26 @@ async def main():
         smooth_d=STOCH_RSI_SMOOTH_D
     )
     logger.info(f"Stochastic RSI Indicator initialized with lengthRSI={STOCH_RSI_LENGTH_RSI}, lengthStoch={STOCH_RSI_LENGTH_STOCH}, smoothK={STOCH_RSI_SMOOTH_K}, smoothD={STOCH_RSI_SMOOTH_D}")
+    
+    williams_r_indicator = WilliamsR(length=WILLIAMS_R_LENGTH)
+    logger.info(f"Williams %R Indicator initialized with length={WILLIAMS_R_LENGTH}")
+    
+    fisher_indicator = FisherTransform(length=FISHER_LENGTH)
+    logger.info(f"Fisher Transform Indicator initialized with length={FISHER_LENGTH}")
+    
+    coral_indicator = CoralTrend(period=CORAL_PERIOD, multiplier=CORAL_MULTIPLIER)
+    logger.info(f"Coral Trend Indicator initialized with period={CORAL_PERIOD}, multiplier={CORAL_MULTIPLIER}")
 
-    # Strateji oluştur - Tüm indikatörler kombinasyonu (5 indikatör)
+    # Strateji oluştur - Tüm indikatörler kombinasyonu (8 indikatör)
     strategy = AllIndicatorsStrategy(
         cmo_indicator=cmo_indicator, 
         stoch_indicator=stoch_indicator,
         rsi_indicator=rsi_indicator,
         macd_indicator=macd_indicator,
-        stoch_rsi_indicator=stoch_rsi_indicator
+        stoch_rsi_indicator=stoch_rsi_indicator,
+        williams_r_indicator=williams_r_indicator,
+        fisher_indicator=fisher_indicator,
+        coral_indicator=coral_indicator
     )
 
     tracker = SignalTracker()

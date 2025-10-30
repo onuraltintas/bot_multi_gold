@@ -92,6 +92,68 @@ def _format_cmo(indicators: Dict) -> str:
     return f"CMO: {cmo:.1f}{status}"
 
 
+def _format_williams_r(indicators: Dict) -> str:
+    """Williams %R formatlayıcı"""
+    williams_r = indicators.get('williams_r')
+    if williams_r is None:
+        return ""
+    status = ""
+    if williams_r > -20:
+        status = " 🔴 Aşırı Alım"
+    elif williams_r < -80:
+        status = " 🟢 Aşırı Satım"
+    elif williams_r > -50:
+        status = " ↗️ Güçlü"
+    elif williams_r < -50:
+        status = " ↘️ Zayıf"
+    return f"Williams %R: {williams_r:.1f}{status}"
+
+
+def _format_fisher(indicators: Dict) -> str:
+    """Fisher Transform formatlayıcı"""
+    fisher = indicators.get('fisher')
+    trigger = indicators.get('fisher_trigger')
+    if fisher is None or trigger is None:
+        return ""
+    
+    # Cross durumu
+    cross_status = ""
+    if fisher > trigger:
+        if fisher > 1.5:
+            cross_status = " 🟢 GÜÇLÜ BUY"
+        else:
+            cross_status = " ↗️ Bullish"
+    elif fisher < trigger:
+        if fisher < -1.5:
+            cross_status = " 🔴 GÜÇLÜ SELL"
+        else:
+            cross_status = " ↘️ Bearish"
+    
+    # Extreme seviye uyarısı
+    if abs(fisher) > 2.5:
+        cross_status += " (⚠️ Extreme)"
+    
+    return f"Fisher: {fisher:.2f} / Trigger: {trigger:.2f}{cross_status}"
+
+
+def _format_coral(indicators: Dict) -> str:
+    """Coral Trend formatlayıcı"""
+    coral = indicators.get('coral')
+    trend = indicators.get('coral_trend')
+    if coral is None or trend is None:
+        return ""
+    
+    # Trend durumu
+    if trend == 1:
+        trend_status = " 🟢 Bullish Trend"
+    elif trend == -1:
+        trend_status = " 🔴 Bearish Trend"
+    else:
+        trend_status = " ⚪ Neutral"
+    
+    return f"Coral: {coral:.2f}{trend_status}"
+
+
 def _format_dmi(indicators: Dict) -> str:
     if not all(k in indicators for k in ['plus_di', 'minus_di', 'adx']):
         return ""
