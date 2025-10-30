@@ -183,9 +183,10 @@ def _format_time_ago(timestamp: int) -> str:
 
 
 class ShortTermMessageBuilder:
-    """15m & 1h batch mesajı oluşturur"""
+    """5m, 15m & 1h batch mesajı oluşturur"""
 
     TIMEFRAME_INFO = {
+        "5m": {"emoji": "⚡", "name": "5 Dakika"},
         "15m": {"emoji": "🔥", "name": "15 Dakika"},
         "1h": {"emoji": "⏰", "name": "1 Saat"}
     }
@@ -202,7 +203,7 @@ class ShortTermMessageBuilder:
         message += f"🕒 {turkey_time.strftime('%d.%m.%Y %H:%M:%S')} (TR)\n"
         message += f"💰 Fiyat: ${price:.4f}\n\n"
 
-        for timeframe in ["15m", "1h"]:
+        for timeframe in ["5m", "15m", "1h"]:
             tf_info = self.TIMEFRAME_INFO[timeframe]
             result = results.get(timeframe)
             if result and result['signal'] != "NEUTRAL":
@@ -229,17 +230,16 @@ class ShortTermMessageBuilder:
                     message += f"{tf_info['emoji']} {tf_info['name']}: ⚪ Son {'ALIM' if last_signal=='BUY' else 'SATIM'}: {time_ago}\n"
                 else:
                     message += f"{tf_info['emoji']} {tf_info['name']}: ⚪ Henüz sinyal yok\n"
-            if timeframe == "15m":
+            if timeframe in ["5m", "15m"]:
                 message += "\n"
         return message
 
 
 class LongTermMessageBuilder:
-    """4h & 1d batch mesajı oluşturur"""
+    """4h batch mesajı oluşturur"""
 
     TIMEFRAME_INFO = {
-        "4h": {"emoji": "📈", "name": "4 Saat"},
-        "1d": {"emoji": "🎯", "name": "1 Gün"}
+        "4h": {"emoji": "📈", "name": "4 Saat"}
     }
 
     def build(self, symbol: str, price: float, results: Dict, tracker) -> Optional[str]:
@@ -256,7 +256,7 @@ class LongTermMessageBuilder:
         message += f"🕒 {turkey_time.strftime('%d.%m.%Y %H:%M:%S')} (TR)\n"
         message += f"💰 Fiyat: ${price:.4f}\n\n"
 
-        for timeframe in ["4h", "1d"]:
+        for timeframe in ["4h"]:
             tf_info = self.TIMEFRAME_INFO[timeframe]
             result = results.get(timeframe)
             if result and result['signal'] != "NEUTRAL":
@@ -283,7 +283,6 @@ class LongTermMessageBuilder:
                     message += f"{tf_info['emoji']} {tf_info['name']}: ⚪ Son {'ALIM' if last_signal=='BUY' else 'SATIM'}: {time_ago}\n"
                 else:
                     message += f"{tf_info['emoji']} {tf_info['name']}: ⚪ Henüz sinyal yok\n"
-            if timeframe == "4h":
-                message += "\n"
+
         message += f"\n{header}"
         return message

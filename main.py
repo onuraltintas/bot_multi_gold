@@ -154,8 +154,8 @@ async def main():
                 logger.info(f"Analyzing timeframes: {ready_timeframes}")
                 
                 # Kısa ve uzun vadeli timeframe'leri ayır
-                short_term = [tf for tf in ready_timeframes if tf in ["3m", "5m", "15m", "1h"]]
-                long_term = [tf for tf in ready_timeframes if tf in ["4h", "1d"]]
+                short_term = [tf for tf in ready_timeframes if tf in ["5m", "15m", "1h"]]
+                long_term = [tf for tf in ready_timeframes if tf in ["4h"]]
                 
                 # Kısa vadeli analiz
                 if short_term:

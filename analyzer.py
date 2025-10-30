@@ -283,10 +283,10 @@ class CryptoAnalyzer:
         return successfully_analyzed
 
     async def analyze_long_term_batch(self, timeframes: List[str]) -> List[str]:
-        """Uzun vadeli timeframe'leri toplu analiz et (4h, 1d)
+        """Uzun vadeli timeframe'leri toplu analiz et (4h)
 
         Args:
-            timeframes: Analiz edilecek timeframe'ler (örn: ["4h"] veya ["4h", "1d"])
+            timeframes: Analiz edilecek timeframe'ler (örn: ["4h"])
 
         Returns:
             Başarıyla analiz edilen timeframe'lerin listesi
@@ -296,7 +296,7 @@ class CryptoAnalyzer:
             # Her timeframe için analiz sonuçlarını topla
             results = {}
 
-            for timeframe in ["4h", "1d"]:  # Her iki timeframe'i de kontrol et
+            for timeframe in ["4h"]:  # Uzun vade timeframe'ini kontrol et
                 if timeframe in timeframes:
                     # Bu timeframe mum kapandı, analiz et
                     # Önce yetersiz veri kontrolü
@@ -344,14 +344,14 @@ class CryptoAnalyzer:
     async def run_analysis(self):
         """Tüm timeframe'ler için analiz çalıştır (eski metod - geriye dönük uyumluluk)"""
         short_term_signals = {}  # 5m, 15m, 1h
-        long_term_signals = {}   # 4h, 1d
+        long_term_signals = {}   # 4h
 
         for timeframe in TIMEFRAMES:
             try:
                 result = await self.analyze_timeframe(timeframe)
                 if result:
                     # Uzun vadeli ve kısa vadeli sinyalleri ayır
-                    if timeframe in ["4h", "1d"]:
+                    if timeframe in ["4h"]:
                         long_term_signals[timeframe] = result
                     else:
                         short_term_signals[timeframe] = result
@@ -692,13 +692,13 @@ class CryptoAnalyzer:
 
         Args:
             results: Timeframe sonuçları (result_dict or None)
-            is_long_term: Uzun vadeli mi (4h, 1d) yoksa kısa vadeli mi (15m, 1h)
+            is_long_term: Uzun vadeli mi (4h) yoksa kısa vadeli mi (5m, 15m, 1h)
         """
         if is_long_term:
-            timeframes = ["4h", "1d"]
+            timeframes = ["4h"]
             timeframe_info = {
                 "4h": {"emoji": "📈", "name": "4 Saat"},
-                "1d": {"emoji": "🎯", "name": "1 Gün"}
+
             }
             title = "UZUN VADELİ"
         else:
