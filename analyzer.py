@@ -267,19 +267,6 @@ class CryptoAnalyzer:
             for timeframe in ["4h"]:  # Uzun vade timeframe'ini kontrol et
                 if timeframe in timeframes:
                     # Bu timeframe mum kapandı, analiz et
-                    # Önce yetersiz veri kontrolü
-                    klines = await self.exchange.get_klines(self.symbol, timeframe)
-                    min_required = MIN_KLINES_PER_TIMEFRAME.get(timeframe, MIN_KLINES)
-
-                    if not klines or len(klines) < min_required + 1:
-                        logger.warning(
-                            f"Insufficient data for {self.symbol} {timeframe}: "
-                            f"got {len(klines) if klines else 0}, need {min_required}"
-                        )
-                        await self._send_insufficient_data_message(timeframe, len(klines) if klines else 0)
-                        results[timeframe] = None
-                        continue
-
                     result = await self.analyze_timeframe(timeframe)
                     if result:
                         results[timeframe] = result
