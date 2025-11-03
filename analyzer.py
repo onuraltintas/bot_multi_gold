@@ -8,7 +8,7 @@ import pytz
 from typing import Dict, Optional, List
 from config import TARGET_SYMBOL, MIN_KLINES, MIN_KLINES_PER_TIMEFRAME, TIMEFRAMES
 from indicators import IIndicator
-from strategies import IStrategy, CMOStrategy
+from strategies import IStrategy
 from core import ExchangeClient, SignalTracker, TelegramNotifier
 from message_builders import ShortTermMessageBuilder, LongTermMessageBuilder
 
@@ -55,12 +55,8 @@ class CryptoAnalyzer:
             return None
 
         # Stratejiyi çağır ve sinyal al
-        if isinstance(self.strategy, CMOStrategy) and hasattr(self.strategy, 'analyze_with_context'):
-            signal, context = self.strategy.analyze_with_context(klines)
-            indicator_values = context['indicators']['cmo']['cmo']  # CMO değerleri
-        else:
-            indicator_values = self.indicator.calculate(klines)
-            signal = self.strategy.analyze(indicator_values, klines)
+        indicator_values = self.indicator.calculate(klines)
+        signal = self.strategy.analyze(indicator_values, klines)
 
         # Sinyal bilgilerini hazırla
         # SON KAPANMIŞ MUMU KULLAN (aktif mum hariç) - TradingView senkronizasyonu için
@@ -108,37 +104,8 @@ class CryptoAnalyzer:
 
         # NEUTRAL durumlar için loglama
         if signal == "NEUTRAL":
-            if 'context' in locals() and 'indicators' in context:
-                # Strategy'den gelen context'i kullan
-                indicators_data = {}
-                
-                # CMO
-                if 'cmo' in context['indicators']:
-                    cmo_dict = context['indicators']['cmo']
-                    indicators_data['cmo'] = cmo_dict['cmo'][curr_idx] if cmo_dict['cmo'][curr_idx] is not None else 0
-                
-                # Stochastic
-                if 'stoch_k' in context['indicators']:
-                    indicators_data['stoch_k'] = context['indicators']['stoch_k'][curr_idx]
-                    indicators_data['stoch_d'] = context['indicators']['stoch_d'][curr_idx]
-                
-                # RSI
-                if 'rsi' in context['indicators']:
-                    rsi_dict = context['indicators']['rsi']
-                    indicators_data['rsi'] = rsi_dict['rsi'][curr_idx] if rsi_dict['rsi'][curr_idx] is not None else 0
-                
-                # MACD
-                if 'macd' in context['indicators']:
-                    indicators_data['macd'] = context['indicators']['macd'][curr_idx]
-                    indicators_data['macd_signal'] = context['indicators']['macd_signal'][curr_idx]
-                    indicators_data['macd_histogram'] = context['indicators']['macd_histogram'][curr_idx]
-                
-                # Stochastic RSI
-                if 'stoch_rsi_k' in context['indicators']:
-                    indicators_data['stoch_rsi_k'] = context['indicators']['stoch_rsi_k'][curr_idx]
-                    indicators_data['stoch_rsi_d'] = context['indicators']['stoch_rsi_d'][curr_idx]
-            else:
-                indicators_data = {"cmo": indicator_values[curr_idx] if curr_idx < len(indicator_values) else 0}
+            # indicator_values dictionary'den değerleri al
+            indicators_data = indicator_values if isinstance(indicator_values, dict) else {}
 
             # NEUTRAL durumlar için log
             log_parts = [
@@ -174,38 +141,7 @@ class CryptoAnalyzer:
         self.tracker.signal_timestamps[f"{self.symbol}_{timeframe}"] = timestamp
 
         # İndikatör değerlerini hazırla (mesajda göstermek için)
-        if 'context' in locals() and 'indicators' in context:
-            # Strategy'den gelen context'i kullan
-            indicators_data = {}
-            
-            # CMO
-            if 'cmo' in context['indicators']:
-                cmo_dict = context['indicators']['cmo']
-                indicators_data['cmo'] = cmo_dict['cmo'][curr_idx] if cmo_dict['cmo'][curr_idx] is not None else 0
-            
-            # Stochastic
-            if 'stoch_k' in context['indicators']:
-                indicators_data['stoch_k'] = context['indicators']['stoch_k'][curr_idx]
-                indicators_data['stoch_d'] = context['indicators']['stoch_d'][curr_idx]
-            
-            # RSI
-            if 'rsi' in context['indicators']:
-                rsi_dict = context['indicators']['rsi']
-                indicators_data['rsi'] = rsi_dict['rsi'][curr_idx] if rsi_dict['rsi'][curr_idx] is not None else 0
-            
-            # MACD
-            if 'macd' in context['indicators']:
-                indicators_data['macd'] = context['indicators']['macd'][curr_idx]
-                indicators_data['macd_signal'] = context['indicators']['macd_signal'][curr_idx]
-                indicators_data['macd_histogram'] = context['indicators']['macd_histogram'][curr_idx]
-            
-            # Stochastic RSI
-            if 'stoch_rsi_k' in context['indicators']:
-                indicators_data['stoch_rsi_k'] = context['indicators']['stoch_rsi_k'][curr_idx]
-                indicators_data['stoch_rsi_d'] = context['indicators']['stoch_rsi_d'][curr_idx]
-        else:
-            # Fallback
-            indicators_data = {"cmo": 0}
+        indicators_data = indicator_values if isinstance(indicator_values, dict) else {}
 
         # Detaylı sinyal + indikatör logu
         log_parts = [
