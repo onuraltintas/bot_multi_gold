@@ -12,13 +12,14 @@ TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 # Trading Konfigürasyonu
 TARGET_SYMBOL = "XAU/USD"  # Forex Gold (Twelve Data format: XAU/USD)
-TIMEFRAMES = ["5m", "15m", "1h", "4h"]  # 1m kaldırıldı
+TIMEFRAMES = ["1m", "5m", "15m", "1h", "4h"]  # Multi-API key rotation ile 1m eklendi
 
 # Minimum mum sayısı
 MIN_KLINES = 100
 
 # Timeframe başına minimum mum sayısı
 MIN_KLINES_PER_TIMEFRAME = {
+    "1m": 100,
     "5m": 100,
     "15m": 100,
     "1h": 100,
@@ -67,11 +68,17 @@ FISHER_BULLISH_THRESHOLD = 1.5  # Güçlü boğa trendi eşiği
 FISHER_BEARISH_THRESHOLD = -1.5  # Güçlü ayı trendi eşiği
 
 # Coral Trend Parametreleri
-CORAL_PERIOD = 21  # Coral Trend EMA periyodu
+CORAL_PERIOD = 9  # Coral Trend EMA periyodu
 CORAL_MULTIPLIER = 0.4  # ATR çarpanı (0.2-0.6 arası önerilir)
 
 # Strateji Parametreleri - Majority Vote
 MINIMUM_VOTE_THRESHOLD = 4  # 8 indikatörden en az kaç tanesi aynı yönde sinyal vermeli (4-8 arası)
 
-# Twelve Data API Konfigürasyonu
+# Twelve Data API Konfigürasyonu - Multiple Keys
+# Rotation ile rate limit aşılmadan tüm timeframe'ler çalışır
 TWELVE_DATA_API_KEY = os.getenv("TWELVE_DATA_API_KEY", "")
+TWELVE_DATA_API_KEY_2 = os.getenv("TWELVE_DATA_API_KEY_2", "")
+TWELVE_DATA_API_KEY_3 = os.getenv("TWELVE_DATA_API_KEY_3", "")
+
+# API Key listesini oluştur (boş olmayanları)
+TWELVE_DATA_API_KEYS = [key for key in [TWELVE_DATA_API_KEY, TWELVE_DATA_API_KEY_2, TWELVE_DATA_API_KEY_3] if key]

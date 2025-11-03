@@ -8,7 +8,7 @@ import asyncio
 import logging
 from config import (
     TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, TARGET_SYMBOL, TIMEFRAMES,
-    CMO_LENGTH, TWELVE_DATA_API_KEY,
+    CMO_LENGTH, TWELVE_DATA_API_KEYS,
     STOCH_PERIOD_K, STOCH_SMOOTH_K, STOCH_SMOOTH_D,
     RSI_LENGTH,
     MACD_FAST_LENGTH, MACD_SLOW_LENGTH, MACD_SIGNAL_LENGTH,
@@ -40,13 +40,14 @@ async def main():
         logger.error("TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not found in .env file")
         return
     
-    if not TWELVE_DATA_API_KEY:
-        logger.error("TWELVE_DATA_API_KEY not found in .env file")
+    if not TWELVE_DATA_API_KEYS:
+        logger.error("No Twelve Data API keys found in .env file")
         return
 
-    # Twelve Data Client oluştur
-    exchange = TwelveDataClient(api_key=TWELVE_DATA_API_KEY)
-    logger.info("Twelve Data client initialized (800 req/day free tier)")
+    # Twelve Data Client oluştur - Multiple API keys ile
+    exchange = TwelveDataClient(api_keys=TWELVE_DATA_API_KEYS)
+    logger.info(f"Twelve Data client initialized with {len(TWELVE_DATA_API_KEYS)} API key(s)")
+    logger.info(f"Total daily capacity: {len(TWELVE_DATA_API_KEYS) * 800} requests/day")
 
     # İndikatörler oluştur
     cmo_indicator = ChandeMomentumOscillator(length=CMO_LENGTH, use_low=True)
@@ -114,11 +115,9 @@ async def main():
     )
 
     try:
-        # Scheduler'ı başlat (1m hariç, çünkü 5m ile birlikte analiz edilecek)
+        # Scheduler'ı başlat - Tüm timeframe'ler
         logger.info("Initializing scheduler for all timeframes...")
         for timeframe in TIMEFRAMES:
-            if timeframe == "1m":
-                continue  # 1m için scheduler yok, 5m kapandığında analiz edilecek
             await scheduler.initialize(TARGET_SYMBOL, timeframe, exchange)
         logger.info("Scheduler initialization completed")
 

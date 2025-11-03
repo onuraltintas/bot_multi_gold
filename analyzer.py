@@ -236,10 +236,10 @@ class CryptoAnalyzer:
         }
 
     async def analyze_short_term_batch(self, timeframes: List[str]) -> List[str]:
-        """Kısa vadeli timeframe'leri toplu analiz et (15m, 1h)
+        """Kısa vadeli timeframe'leri toplu analiz et (1m, 5m, 15m, 1h)
 
         Args:
-            timeframes: Analiz edilecek timeframe'ler (örn: ["15m"] veya ["15m", "1h"])
+            timeframes: Analiz edilecek timeframe'ler (örn: ["1m", "5m", "15m", "1h"])
 
         Returns:
             Başarıyla analiz edilen timeframe'lerin listesi
@@ -249,7 +249,7 @@ class CryptoAnalyzer:
             # Her timeframe için analiz sonuçlarını topla
             results = {}
 
-            for timeframe in ["15m", "1h"]:  # Her iki timeframe'i de kontrol et
+            for timeframe in ["1m", "5m", "15m", "1h"]:  # Tüm kısa vadeli timeframe'leri kontrol et
                 if timeframe in timeframes:
                     # Bu timeframe mum kapandı, analiz et
                     result = await self.analyze_timeframe(timeframe)
@@ -343,7 +343,7 @@ class CryptoAnalyzer:
 
     async def run_analysis(self):
         """Tüm timeframe'ler için analiz çalıştır (eski metod - geriye dönük uyumluluk)"""
-        short_term_signals = {}  # 5m, 15m, 1h
+        short_term_signals = {}  # 1m, 5m, 15m, 1h
         long_term_signals = {}   # 4h
 
         for timeframe in TIMEFRAMES:
@@ -388,8 +388,9 @@ class CryptoAnalyzer:
 # Placeholder fonksiyonu artık gereksiz (time-ago builder içinde hesaplanıyor)
 
     async def _send_short_term_message(self, signals: Dict):
-        """Kısa vadeli (5m, 15m, 1h) sinyal mesajı - GOLD"""
+        """Kısa vadeli (1m, 5m, 15m, 1h) sinyal mesajı - GOLD"""
         timeframe_info = {
+            "1m": {"emoji": "⚡⚡", "name": "1 Dakika"},
             "5m": {"emoji": "🔸", "name": "5 Dakika"},
             "15m": {"emoji": "�", "name": "15 Dakika"},
             "1h": {"emoji": "⏰", "name": "1 Saat"}

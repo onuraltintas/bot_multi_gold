@@ -66,7 +66,8 @@ class ExchangeClient:
 class TwelveDataClient(ExchangeClient):
     """Twelve Data API Client - Real-time Forex Gold (XAUUSD) verisi için
     
-    Free tier: 800 requests/day, real-time data
+    Free tier: 800 requests/day per API key, real-time data
+    Supports multiple API keys with round-robin rotation
     """
     
     # Timeframe mapping: bot -> Twelve Data
@@ -84,15 +85,30 @@ class TwelveDataClient(ExchangeClient):
         "1d": "1day"
     }
     
-    def __init__(self, api_key: str):
-        """Twelve Data Client initialize
+    def __init__(self, api_keys: list):
+        """Twelve Data Client initialize with multiple API keys
         
         Args:
-            api_key: Twelve Data API key
+            api_keys: List of Twelve Data API keys for rotation
         """
-        self.api_key = api_key
+        if not api_keys or not isinstance(api_keys, list):
+            raise ValueError("api_keys must be a non-empty list")
+        
+        self.api_keys = api_keys
+        self.current_key_index = 0
         self.base_url = "https://api.twelvedata.com"
         self.client = httpx.AsyncClient(timeout=30.0)
+        self.request_counts = {key: 0 for key in api_keys}  # Her key için istek sayacı
+        
+        logger.info(f"TwelveDataClient initialized with {len(api_keys)} API keys")
+        logger.info(f"Total daily capacity: {len(api_keys) * 800} requests")
+    
+    def _get_next_api_key(self) -> str:
+        """Round-robin ile sıradaki API key'i döndür"""
+        key = self.api_keys[self.current_key_index]
+        self.request_counts[key] += 1
+        self.current_key_index = (self.current_key_index + 1) % len(self.api_keys)
+        return key
         
     async def get_klines(self, symbol: str, interval: str, limit: int = 101) -> List[List]:
         """Twelve Data'dan mum verilerini al ve bot formatına çevir
@@ -109,13 +125,14 @@ class TwelveDataClient(ExchangeClient):
         # Symbol format: Use as-is (XAU/USD for forex pairs)
         td_symbol = symbol
         
-        # API request
+        # API request - rotation ile key seç
+        current_key = self._get_next_api_key()
         url = f"{self.base_url}/time_series"
         params = {
             "symbol": td_symbol,
             "interval": td_interval,
             "outputsize": limit,
-            "apikey": self.api_key,
+            "apikey": current_key,
             "timezone": "UTC",  # UTC timezone kullan
             "format": "JSON"
         }
@@ -196,8 +213,19 @@ class TwelveDataClient(ExchangeClient):
         return map_ms.get(interval, 60 * 1000)
     
     async def close(self):
-        """HTTP client'ı kapat"""
+        """HTTP client'ı kapat ve istatistikleri göster"""
         await self.client.aclose()
+        
+        # API kullanım istatistiklerini logla
+        logger.info("=" * 60)
+        logger.info("API Request Distribution:")
+        total_requests = sum(self.request_counts.values())
+        for i, (key, count) in enumerate(self.request_counts.items(), 1):
+            key_preview = f"{key[:10]}..." if len(key) > 10 else key
+            percentage = (count / total_requests * 100) if total_requests > 0 else 0
+            logger.info(f"  API Key {i} ({key_preview}): {count} requests ({percentage:.1f}%)")
+        logger.info(f"Total requests: {total_requests}")
+        logger.info("=" * 60)
         logger.info("Twelve Data client closed")
 
 

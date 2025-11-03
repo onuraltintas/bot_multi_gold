@@ -1,27 +1,37 @@
 # CMO Trading Bot - XAUUSD (Forex Gold)
 
-Twelve Data API kullanarak Forex Gold (XAUUSD) için CMO indikatörü ile otomatik trading sinyalleri üreten bot.
+Twelve Data API kullanarak Forex Gold (XAUUSD) için 8 indikatör ile otomatik trading sinyalleri üreten bot.
 
 ## 🎯 Özellikler
 
 - **Instrument**: XAUUSD (Forex Gold)
-- **Zaman Dilimleri**: 3m, 5m, 15m, 1h, 4h (5 timeframe)
-- **İndikatör**:
-  - CMO (14 periyot) - Chande Momentum Oscillator
+- **Zaman Dilimleri**: 1m, 5m, 15m, 1h, 4h (5 timeframe)
+- **İndikatörler** (8 adet):
+  - CMO (Chande Momentum Oscillator)
+  - Stochastic Oscillator
+  - RSI (Relative Strength Index)
+  - MACD (Moving Average Convergence Divergence)
+  - Stochastic RSI
+  - Williams %R
+  - Fisher Transform
+  - Coral Trend
+- **Strateji**: MajorityVote (minimum 4/8 indikatör aynı yönde sinyal vermeli)
 - **Analiz Yöntemi**: Her mum kapanışında
-- **Veri Kaynağı**: Twelve Data API (Real-time forex data, 800 req/day free)
+- **Veri Kaynağı**: Twelve Data API (Real-time forex data, 3 API key ile 2400 req/day)
 - **Bildirim**: Telegram
-- **Mimari**: OOP - Modüler yapı (6 dosya)
+- **Mimari**: OOP - Modüler yapı (7 dosya)
 - **Deployment**: Linux VPS uyumlu
 
 ## 📊 Sinyal Mantığı
 
-Bot **CMO (Chande Momentum Oscillator)** sinyallerine göre sinyal üretir:
-- **BUY**: CMO < -50 (oversold bölgesi)
-- **SELL**: CMO > +50 (overbought bölgesi)
-- **NEUTRAL**: -50 ile +50 arasında
+Bot **MajorityVote Stratejisi** kullanır:
+- **8 İndikatör** analiz edilir (CMO, Stochastic, RSI, MACD, Stochastic RSI, Williams %R, Fisher Transform, Coral Trend)
+- **Minimum 4 indikatör** aynı yönde sinyal vermelidir
+- **BUY**: En az 4 indikatör BUY sinyali verdiğinde
+- **SELL**: En az 4 indikatör SELL sinyali verdiğinde
+- **NEUTRAL**: Yeterli konsensüs yoksa
 
-CMO değeri +100 ile -100 arasında değişir ve momentum gücünü ölçer.
+Her indikatör kendi parametreleri ile ayrı ayrı değerlendirilir ve oy verir.
 
 ## 🔧 Kurulum
 

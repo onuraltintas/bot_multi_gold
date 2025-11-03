@@ -183,9 +183,10 @@ def _format_time_ago(timestamp: int) -> str:
 
 
 class ShortTermMessageBuilder:
-    """5m, 15m & 1h batch mesajı oluşturur"""
+    """1m, 5m, 15m & 1h batch mesajı oluşturur"""
 
     TIMEFRAME_INFO = {
+        "1m": {"emoji": "⚡⚡", "name": "1 Dakika"},
         "5m": {"emoji": "⚡", "name": "5 Dakika"},
         "15m": {"emoji": "🔥", "name": "15 Dakika"},
         "1h": {"emoji": "⏰", "name": "1 Saat"}
@@ -203,7 +204,7 @@ class ShortTermMessageBuilder:
         message += f"🕒 {turkey_time.strftime('%d.%m.%Y %H:%M:%S')} (TR)\n"
         message += f"💰 Fiyat: ${price:.4f}\n\n"
 
-        for timeframe in ["5m", "15m", "1h"]:
+        for timeframe in ["1m", "5m", "15m", "1h"]:
             tf_info = self.TIMEFRAME_INFO[timeframe]
             result = results.get(timeframe)
             if result and result['signal'] != "NEUTRAL":
