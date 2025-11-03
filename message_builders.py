@@ -198,9 +198,10 @@ class ShortTermMessageBuilder:
         if not first_active:
             return None
         
-        # BUY veya SELL sinyali var mı kontrol et (NEUTRAL hariç)
+        # NET BUY veya NET SELL sinyali var mı kontrol et (threshold'a ulaşmış olmalı)
+        # final_signal BUY veya SELL olmalı, NEUTRAL değil
         has_real_signal = any(
-            r and r['signal'] != "NEUTRAL" 
+            r and r['signal'] in ['BUY', 'SELL']
             for r in results.values() if r is not None
         )
         
@@ -263,9 +264,10 @@ class LongTermMessageBuilder:
         if not first_active:
             return None
         
-        # BUY veya SELL sinyali var mı kontrol et (NEUTRAL hariç)
+        # NET BUY veya NET SELL sinyali var mı kontrol et (threshold'a ulaşmış olmalı)
+        # final_signal BUY veya SELL olmalı, NEUTRAL değil
         has_real_signal = any(
-            r and r['signal'] != "NEUTRAL" 
+            r and r['signal'] in ['BUY', 'SELL']
             for r in results.values() if r is not None
         )
         
