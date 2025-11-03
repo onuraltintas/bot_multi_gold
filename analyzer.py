@@ -213,19 +213,19 @@ class CryptoAnalyzer:
                     results[timeframe] = None
                     logger.debug(f"{timeframe}: not closed, will show last signal")
 
-            # En az bir timeframe'de sinyal var mı kontrol et
+            # En az bir timeframe'de gerçek sinyal var mı kontrol et (NEUTRAL hariç)
             has_signal = any(
                 result and result['signal'] != "NEUTRAL"
                 for result in results.values() if result is not None
             )
 
             if has_signal:
-                # En az birinde sinyal var, mesaj gönder
+                # En az birinde BUY/SELL sinyali var, mesaj gönder
                 logger.info(f"Short-term batch has signals, sending message")
                 await self._send_short_term_batch_message(results)
             else:
-                # Hiçbirinde sinyal yok, sessiz
-                logger.debug(f"Short-term batch: no signals, skipping message")
+                # Sadece NEUTRAL'ler var veya hiç sinyal yok
+                logger.info(f"Short-term batch: only NEUTRAL signals, no message sent")
 
         except Exception as e:
             logger.error(f"Error analyzing short-term batch: {e}", exc_info=True)

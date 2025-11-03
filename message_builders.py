@@ -207,30 +207,35 @@ class ShortTermMessageBuilder:
         for timeframe in ["1m", "5m", "15m", "1h"]:
             tf_info = self.TIMEFRAME_INFO[timeframe]
             result = results.get(timeframe)
+            
+            # NEUTRAL olmayan sinyalleri göster
             if result and result['signal'] != "NEUTRAL":
                 signal_type = result['signal']
                 indicators = result['indicators']
+                
+                # Sadece BUY ve SELL sinyalleri göster
                 if signal_type == "BUY":
                     message += f"{tf_info['emoji']} {tf_info['name']}: 🟢🟢 *BUY* 🟢🟢\n"
                 elif signal_type == "SELL":
                     message += f"{tf_info['emoji']} {tf_info['name']}: 🔴🔴 *SELL* 🔴🔴\n"
                 
-                # Vote breakdown göster (MajorityVoteStrategy için)
+                # Vote breakdown göster
                 vote_line = _format_vote_breakdown(indicators)
                 if vote_line:
                     message += f"   {vote_line}\n"
                 else:
-                    # Fallback: Sadece CMO göster (eski sistem uyumluluğu)
+                    # Fallback: Sadece CMO göster
                     cmo_line = _format_cmo(indicators)
                     if cmo_line:
                         message += f"   └─ {cmo_line}\n"
             else:
+                # Result yok veya NEUTRAL ise son sinyal bilgisini göster
                 last_signal, last_ts = tracker.get_last_signal(symbol, timeframe)
                 if last_signal != "NEUTRAL" and last_ts:
                     time_ago = _format_time_ago(last_ts)
                     message += f"{tf_info['emoji']} {tf_info['name']}: ⚪ Son {'ALIM' if last_signal=='BUY' else 'SATIM'}: {time_ago}\n"
                 else:
-                    message += f"{tf_info['emoji']} {tf_info['name']}: ⚪ Henüz sinyal yok\n"
+                    message += f"{tf_info['emoji']} {tf_info['name']}: ⚪ Henüz analiz yapılmadı\n"
             if timeframe in ["5m", "15m"]:
                 message += "\n"
         return message
@@ -260,30 +265,35 @@ class LongTermMessageBuilder:
         for timeframe in ["4h"]:
             tf_info = self.TIMEFRAME_INFO[timeframe]
             result = results.get(timeframe)
+            
+            # NEUTRAL olmayan sinyalleri göster
             if result and result['signal'] != "NEUTRAL":
                 signal_type = result['signal']
                 indicators = result['indicators']
+                
+                # Sadece BUY ve SELL sinyalleri göster
                 if signal_type == "BUY":
                     message += f"{tf_info['emoji']} {tf_info['name']}: 🟢🟢 *BUY* 🟢🟢\n"
                 elif signal_type == "SELL":
                     message += f"{tf_info['emoji']} {tf_info['name']}: 🔴🔴 *SELL* 🔴🔴\n"
                 
-                # Vote breakdown göster (MajorityVoteStrategy için)
+                # Vote breakdown göster
                 vote_line = _format_vote_breakdown(indicators)
                 if vote_line:
                     message += f"   {vote_line}\n"
                 else:
-                    # Fallback: Sadece CMO göster (eski sistem uyumluluğu)
+                    # Fallback: Sadece CMO göster
                     cmo_line = _format_cmo(indicators)
                     if cmo_line:
                         message += f"   └─ {cmo_line}\n"
             else:
+                # Gerçekten analiz yapılmamış durumlar
                 last_signal, last_ts = tracker.get_last_signal(symbol, timeframe)
                 if last_signal != "NEUTRAL" and last_ts:
                     time_ago = _format_time_ago(last_ts)
                     message += f"{tf_info['emoji']} {tf_info['name']}: ⚪ Son {'ALIM' if last_signal=='BUY' else 'SATIM'}: {time_ago}\n"
                 else:
-                    message += f"{tf_info['emoji']} {tf_info['name']}: ⚪ Henüz sinyal yok\n"
+                    message += f"{tf_info['emoji']} {tf_info['name']}: ⚪ Henüz analiz yapılmadı\n"
 
         message += f"\n{header}"
         return message
