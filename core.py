@@ -144,11 +144,14 @@ class TwelveDataClient(ExchangeClient):
             
             # Hata kontrolü
             if "status" in data and data["status"] == "error":
-                logger.error(f"Twelve Data API error: {data.get('message', 'Unknown error')}")
+                logger.error(f"Twelve Data API error for {symbol} {interval}: {data.get('message', 'Unknown error')}")
+                logger.error(f"Full API response: {data}")
                 return []
             
             if "values" not in data or not data["values"]:
                 logger.error(f"No data from Twelve Data for {symbol} {interval}")
+                logger.error(f"API response keys: {list(data.keys())}")
+                logger.error(f"Full API response: {data}")
                 return []
             
             # Twelve Data formatını bot formatına çevir
