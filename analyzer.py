@@ -104,8 +104,14 @@ class CryptoAnalyzer:
 
         # NEUTRAL durumlar için loglama
         if signal == "NEUTRAL":
-            # indicator_values dictionary'den değerleri al
-            indicators_data = indicator_values if isinstance(indicator_values, dict) else {}
+            # indicator_values dictionary'den değerleri al (arrays)
+            indicators_raw = indicator_values if isinstance(indicator_values, dict) else {}
+            
+            # curr_idx ile son değerleri al
+            indicators_data = {}
+            for key, value in indicators_raw.items():
+                if isinstance(value, list) and len(value) > curr_idx:
+                    indicators_data[key] = value[curr_idx]
 
             # NEUTRAL durumlar için log
             log_parts = [
@@ -113,15 +119,16 @@ class CryptoAnalyzer:
                 f"Price: ${closes[curr_idx]:.4f}",
             ]
             
-            if 'cmo' in indicators_data:
+            if 'cmo' in indicators_data and indicators_data['cmo'] is not None:
                 log_parts.append(f"CMO: {indicators_data['cmo']:.1f}")
-            if 'stoch_k' in indicators_data:
+            if 'stoch_k' in indicators_data and indicators_data['stoch_k'] is not None:
                 log_parts.append(f"Stoch K: {indicators_data['stoch_k']:.1f}")
-            if 'rsi' in indicators_data:
+            if 'rsi' in indicators_data and indicators_data['rsi'] is not None:
                 log_parts.append(f"RSI: {indicators_data['rsi']:.1f}")
             if 'macd' in indicators_data and 'macd_signal' in indicators_data:
-                log_parts.append(f"MACD: {indicators_data['macd']:.4f}/{indicators_data['macd_signal']:.4f}")
-            if 'stoch_rsi_k' in indicators_data:
+                if indicators_data['macd'] is not None and indicators_data['macd_signal'] is not None:
+                    log_parts.append(f"MACD: {indicators_data['macd']:.4f}/{indicators_data['macd_signal']:.4f}")
+            if 'stoch_rsi_k' in indicators_data and indicators_data['stoch_rsi_k'] is not None:
                 log_parts.append(f"StochRSI K: {indicators_data['stoch_rsi_k']:.1f}")
 
             logger.info(" | ".join(log_parts))
@@ -141,7 +148,13 @@ class CryptoAnalyzer:
         self.tracker.signal_timestamps[f"{self.symbol}_{timeframe}"] = timestamp
 
         # İndikatör değerlerini hazırla (mesajda göstermek için)
-        indicators_data = indicator_values if isinstance(indicator_values, dict) else {}
+        indicators_raw = indicator_values if isinstance(indicator_values, dict) else {}
+        
+        # curr_idx ile son değerleri al
+        indicators_data = {}
+        for key, value in indicators_raw.items():
+            if isinstance(value, list) and len(value) > curr_idx:
+                indicators_data[key] = value[curr_idx]
 
         # Detaylı sinyal + indikatör logu
         log_parts = [
@@ -149,15 +162,16 @@ class CryptoAnalyzer:
             f"Price: ${closes[curr_idx]:.4f}",
         ]
         
-        if 'cmo' in indicators_data:
+        if 'cmo' in indicators_data and indicators_data['cmo'] is not None:
             log_parts.append(f"CMO: {indicators_data['cmo']:.1f}")
-        if 'stoch_k' in indicators_data:
+        if 'stoch_k' in indicators_data and indicators_data['stoch_k'] is not None:
             log_parts.append(f"Stoch K: {indicators_data['stoch_k']:.1f}")
-        if 'rsi' in indicators_data:
+        if 'rsi' in indicators_data and indicators_data['rsi'] is not None:
             log_parts.append(f"RSI: {indicators_data['rsi']:.1f}")
         if 'macd' in indicators_data and 'macd_signal' in indicators_data:
-            log_parts.append(f"MACD: {indicators_data['macd']:.4f}/{indicators_data['macd_signal']:.4f}")
-        if 'stoch_rsi_k' in indicators_data:
+            if indicators_data['macd'] is not None and indicators_data['macd_signal'] is not None:
+                log_parts.append(f"MACD: {indicators_data['macd']:.4f}/{indicators_data['macd_signal']:.4f}")
+        if 'stoch_rsi_k' in indicators_data and indicators_data['stoch_rsi_k'] is not None:
             log_parts.append(f"StochRSI K: {indicators_data['stoch_rsi_k']:.1f}")
 
         logger.info(" | ".join(log_parts))
