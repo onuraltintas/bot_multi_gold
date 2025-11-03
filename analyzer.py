@@ -220,9 +220,27 @@ class CryptoAnalyzer:
             )
 
             if has_signal:
-                # En az birinde BUY/SELL sinyali var, mesaj gönder
-                logger.info(f"Short-term batch has signals, sending message")
-                await self._send_short_term_batch_message(results)
+                # En az bir timeframe'de sinyali değişmiş mi kontrol et
+                has_change = False
+                for result in results.values():
+                    if result and result['signal'] != "NEUTRAL":
+                        # Bu timeframe'de sinyal var, değişmiş mi kontrol et
+                        if self.tracker.should_send(
+                            result['symbol'], 
+                            result['timeframe'], 
+                            result['signal'], 
+                            result['timestamp']
+                        ):
+                            has_change = True
+                            logger.info(f"{result['timeframe']}: signal changed to {result['signal']}")
+                
+                if has_change:
+                    # En az bir timeframe'de değişiklik var, mesaj gönder
+                    logger.info(f"Short-term batch has signal changes, sending message")
+                    await self._send_short_term_batch_message(results)
+                else:
+                    # Sinyaller aynı kalmış, mesaj gönderme
+                    logger.info(f"Short-term batch: signals unchanged, no message sent")
             else:
                 # Sadece NEUTRAL'ler var veya hiç sinyal yok
                 logger.info(f"Short-term batch: only NEUTRAL signals, no message sent")
@@ -279,9 +297,27 @@ class CryptoAnalyzer:
             )
 
             if has_signal:
-                # En az birinde sinyal var, mesaj gönder
-                logger.info(f"Long-term batch has signals, sending message")
-                await self._send_long_term_batch_message(results)
+                # En az bir timeframe'de sinyali değişmiş mi kontrol et
+                has_change = False
+                for result in results.values():
+                    if result and result['signal'] != "NEUTRAL":
+                        # Bu timeframe'de sinyal var, değişmiş mi kontrol et
+                        if self.tracker.should_send(
+                            result['symbol'], 
+                            result['timeframe'], 
+                            result['signal'], 
+                            result['timestamp']
+                        ):
+                            has_change = True
+                            logger.info(f"{result['timeframe']}: signal changed to {result['signal']}")
+                
+                if has_change:
+                    # En az bir timeframe'de değişiklik var, mesaj gönder
+                    logger.info(f"Long-term batch has signal changes, sending message")
+                    await self._send_long_term_batch_message(results)
+                else:
+                    # Sinyaller aynı kalmış, mesaj gönderme
+                    logger.info(f"Long-term batch: signals unchanged, no message sent")
             else:
                 # Hiçbirinde sinyal yok, sessiz
                 logger.debug(f"Long-term batch: no signals, skipping message")
