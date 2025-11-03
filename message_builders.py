@@ -197,6 +197,16 @@ class ShortTermMessageBuilder:
         first_active = next((r for r in results.values() if r is not None), None)
         if not first_active:
             return None
+        
+        # BUY veya SELL sinyali var mı kontrol et (NEUTRAL hariç)
+        has_real_signal = any(
+            r and r['signal'] != "NEUTRAL" 
+            for r in results.values() if r is not None
+        )
+        
+        # Sadece NEUTRAL veya None varsa mesaj üretme
+        if not has_real_signal:
+            return None
 
         turkey_tz = pytz.timezone('Europe/Istanbul')
         turkey_time = datetime.now(turkey_tz)
@@ -252,6 +262,17 @@ class LongTermMessageBuilder:
         first_active = next((r for r in results.values() if r is not None), None)
         if not first_active:
             return None
+        
+        # BUY veya SELL sinyali var mı kontrol et (NEUTRAL hariç)
+        has_real_signal = any(
+            r and r['signal'] != "NEUTRAL" 
+            for r in results.values() if r is not None
+        )
+        
+        # Sadece NEUTRAL veya None varsa mesaj üretme
+        if not has_real_signal:
+            return None
+        
         turkey_tz = pytz.timezone('Europe/Istanbul')
         turkey_time = datetime.now(turkey_tz)
 
